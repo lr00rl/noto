@@ -1,0 +1,7 @@
+vllm>=0.8.5
+fastapi
+uvicorn
+transformers>=4.51.0
+torch
+numpy
+aiohttp
