@@ -2,9 +2,24 @@
 如果仍然显存不足，可以使用GGUF量化版本：
 1. 安装llama.cpp:
 pip install llama-cpp-python
+- llama.cpp默认使用CPU，针对CPU做了大量优化
+- 支持AVX2、AVX-512等SIMD指令集加速
+- 量化格式（Q4_0、Q8_0等）可显著减少内存占用和提升CPU推理速度
+- 适合内存较大但GPU显存不足的场景
+
+wget https://github.com/ggml-org/llama.cpp/releases/download/b5631/llama-b5631-bin-ubuntu-x64.zip
+export PATH=/opt/llama.cpp/bin:$PATH
+export LD_LIBRARY_PATH="/opt/llama.cpp/bin:$LD_LIBRARY_PATH"
+llama-cli - 主要的推理工具（以前叫main）
+llama-server - HTTP API服务器
+llama-quantize - 模型量化工具
+llama-run - 简化的运行工具
+
 2. 下载量化模型:
 wget https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf?download=true
 3. 使用量化模型:
+
+GGUF（GPT-Generated Unified Format）是一种用于存储和分发大型语言模型的文件格式，通常用于像llama.cpp这样的推理引擎
 """
 from llama_cpp import Llama
 from typing import List
@@ -59,7 +74,8 @@ if __name__ == "__main__":
     print("=== RTX 1650 GGUF 优化测试 ===")
 
     # 确保模型文件路径正确
-    model_path = "Qwen3-Embedding-0.6B-Q8_0.gguf"
+    # model_path = "Qwen3-Embedding-0.6B-Q8_0.gguf"
+    model_path = "Qwen3-Embedding-0.6B-f16.gguf"
     # 或者使用完整路径
     # model_path = "/path/to/your/Qwen3-Embedding-0.6B-Q8_0.gguf"
 
@@ -88,6 +104,8 @@ if __name__ == "__main__":
 
     try:
         embeddings = model.embed_texts_batch(test_texts)
+        print(f"Embedding shape: {len(embeddings)} texts, {len(embeddings[0])} dimensions")
+        ## Embedding shape: 16 texts, 5 dimensions, 1024 values per dimension
         end_time = time.time()
 
         print(f"\n=== 测试结果 ===")
