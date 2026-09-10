@@ -11,6 +11,12 @@
  * The file is large, seventeen megabytes for this vault, so it is read once
  * and kept until its modification time changes. Only the note asked about
  * is sent to the renderer.
+ *
+ * Hub MOCs (`moc: true`) are dropped from `graph.notes` by note-assistant
+ * before rows are written. When a note has no row, neighbours are still
+ * recovered read-only by scanning other notes' outbound `explicitLinks` and
+ * related/candidate edges that point at this path (or a path/title alias) —
+ * without rebuilding the vault graph in-app.
  */
 
 import path from 'node:path';
@@ -84,6 +90,102 @@ const titleOf = (graph: NoteGraph, relPath: string, fallback?: string): string =
   return base.replace(/\.md$/i, '');
 };
 
+const withoutMarkdownExt = (relPath: string): string => relPath.replace(/\.(md|markdown)$/i, '');
+
+const normalizeEdgePath = (value: string): string => value.trim().replace(/\\/g, '/');
+
+export interface HubEdgeAliases {
+  /** Full vault-relative path forms (with and without `.md`). */
+  readonly paths: ReadonlySet<string>;
+  /** Basename / title forms — only matched against bare (no `/`) edge targets. */
+  readonly names: ReadonlySet<string>;
+}
+
+/**
+ * Path and title forms that may appear on the other end of a graph edge when
+ * the hub itself was never issued a row (`moc: true` filter).
+ */
+export function hubEdgeAliases(relPath: string, title?: string | null): HubEdgeAliases {
+  const paths = new Set<string>();
+  const names = new Set<string>();
+  const addPath = (value: string | null | undefined) => {
+    const normalized = normalizeEdgePath(value ?? '');
+    if (normalized.length === 0) return;
+    paths.add(normalized);
+    paths.add(withoutMarkdownExt(normalized));
+  };
+  const addName = (value: string | null | undefined) => {
+    const normalized = normalizeEdgePath(value ?? '');
+    if (normalized.length === 0 || normalized.includes('/')) return;
+    names.add(normalized);
+    names.add(withoutMarkdownExt(normalized));
+  };
+  addPath(relPath);
+  addName(path.posix.basename(relPath));
+  addName(title ?? null);
+  return { paths, names };
+}
+
+const edgePointsAtHub = (target: string, aliases: HubEdgeAliases): boolean => {
+  const normalized = normalizeEdgePath(target);
+  if (normalized.length === 0) return false;
+  if (aliases.paths.has(normalized) || aliases.paths.has(withoutMarkdownExt(normalized))) return true;
+  if (!normalized.includes('/')) {
+    return aliases.names.has(normalized) || aliases.names.has(withoutMarkdownExt(normalized));
+  }
+  return false;
+};
+
+/**
+ * Neighbours for a note absent from `graph.notes`, inferred only from edges
+ * already stored on other rows. Outbound Links-to stay empty here — the
+ * renderer seeds those from the open note's wiki targets.
+ */
+export function deriveLinksFor(
+  graph: NoteGraph,
+  relPath: string,
+  title?: string | null,
+): NoteLinks {
+  const aliases = hubEdgeAliases(relPath, title);
+  const backlinkPaths: string[] = [];
+  const relatedHits = new Map<string, { score: number; title?: string }>();
+
+  for (const note of graph.notes.values()) {
+    if (note.relPath === relPath) continue;
+    let linked = false;
+    for (const target of note.explicitLinks ?? []) {
+      if (!edgePointsAtHub(target, aliases)) continue;
+      linked = true;
+      break;
+    }
+    if (linked) backlinkPaths.push(note.relPath);
+
+    for (const item of note.related ?? note.candidates ?? []) {
+      if (typeof item.relPath !== 'string' || !edgePointsAtHub(item.relPath, aliases)) continue;
+      const score = item.score ?? 0;
+      const prior = relatedHits.get(note.relPath);
+      if (!prior || score > prior.score) {
+        relatedHits.set(note.relPath, { score, title: note.title });
+      }
+    }
+  }
+
+  backlinkPaths.sort();
+  const backlinkSet = new Set(backlinkPaths);
+  const link = (target: string): GraphLink => ({ relativePath: target, title: titleOf(graph, target) });
+  const backlinks = backlinkPaths.map(link);
+  const related = [...relatedHits.entries()]
+    .filter(([other]) => !backlinkSet.has(other))
+    .sort((a, b) => b[1].score - a[1].score)
+    .slice(0, MAX_RELATED)
+    .map(([other, meta]) => ({
+      relativePath: other,
+      title: titleOf(graph, other, meta.title),
+    }));
+
+  return { backlinks, links: [], related };
+}
+
 /** The three lists for one note, or null when the graph has not met it. */
 export function linksFor(graph: NoteGraph, relPath: string): NoteLinks | null {
   const note = graph.notes.get(relPath);
@@ -100,6 +202,21 @@ export function linksFor(graph: NoteGraph, relPath: string): NoteLinks | null {
     .slice(0, MAX_RELATED)
     .map((item) => ({ relativePath: item.relPath, title: titleOf(graph, item.relPath, item.title) }));
   return { backlinks, links, related };
+}
+
+/**
+ * Row lookup first; when the hub was skipped for issuance, fall back to
+ * scanning other notes' edges. Always returns lists (possibly empty) so the
+ * caller can tell "no graph row" from "no neighbours found".
+ */
+export function linksForNote(
+  graph: NoteGraph,
+  relPath: string,
+  title?: string | null,
+): { readonly known: boolean; readonly links: NoteLinks } {
+  const found = linksFor(graph, relPath);
+  if (found) return { known: true, links: found };
+  return { known: false, links: deriveLinksFor(graph, relPath, title) };
 }
 
 /**

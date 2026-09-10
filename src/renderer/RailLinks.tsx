@@ -9,9 +9,10 @@
  * computed here, so this cannot disagree with the plugin.
  *
  * Hub MOCs are often absent from the graph (`moc: true`). When the graph
- * has not met the note, optional seeded outbound links — wiki targets
- * written in the note itself — still fill "Links to", so a dense map is
- * not an empty "unknown note" panel.
+ * has not met the note, outbound wiki targets still fill "Links to", and
+ * main may still populate Linked from / Related by scanning other notes'
+ * edges that point at this hub — without inventing scores the file does
+ * not carry. Empty Related stays hidden.
  */
 
 import { useEffect, useState } from 'react';
@@ -89,17 +90,26 @@ export function RailLinks({ currentPath, onLinks, onOpen, seedLinks = [] }: Rail
     );
   }
   if (!reply.known) {
-    if (seedLinks.length > 0) {
-      return (
-        <div className="rail-links" data-testid="links-panel" data-seeded="true">
-          <p className="rail-empty" data-testid="links-status">
-            The graph has not met this note; showing links written in it.
-          </p>
-          <Section title="Links to" items={seedLinks} onOpen={onOpen} testId="links-out" />
-        </div>
-      );
+    const derivedBacklinks = reply.backlinks;
+    const derivedRelated = reply.related;
+    const hasSeed = seedLinks.length > 0;
+    const hasDerived = derivedBacklinks.length + derivedRelated.length > 0;
+    if (!hasSeed && !hasDerived) {
+      return <p className="rail-empty" data-testid="links-status">The graph has not met this note yet.</p>;
     }
-    return <p className="rail-empty" data-testid="links-status">The graph has not met this note yet.</p>;
+    const status = hasDerived && hasSeed
+      ? 'The graph has not met this note; showing links written in it and neighbours inferred from other notes.'
+      : hasDerived
+        ? 'The graph has not met this note; showing neighbours inferred from other notes.'
+        : 'The graph has not met this note; showing links written in it.';
+    return (
+      <div className="rail-links" data-testid="links-panel" data-seeded={hasSeed ? 'true' : undefined} data-derived={hasDerived ? 'true' : undefined}>
+        <p className="rail-empty" data-testid="links-status">{status}</p>
+        <Section title="Linked from" items={derivedBacklinks} onOpen={onOpen} testId="links-backlinks" />
+        <Section title="Links to" items={seedLinks} onOpen={onOpen} testId="links-out" />
+        <Section title="Related" items={derivedRelated} onOpen={onOpen} testId="links-related" />
+      </div>
+    );
   }
   const nothing = reply.backlinks.length + reply.links.length + reply.related.length === 0;
   return (
