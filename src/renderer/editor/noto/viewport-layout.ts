@@ -18,8 +18,8 @@
  *
  * This is not a virtual scroller. The DOM still holds every block. What it
  * removes is the engine's obligation to lay out and paint the ones nobody can
- * see. A stubbing scroller that drops off-screen content from the tree is the
- * next step if this is not enough; it is deliberately not this change.
+ * see. Far-off blocks are dropped from the tree by `viewport-stub.ts` once a
+ * document is large enough that DOM size itself dominates a keystroke.
  */
 
 import { Plugin, PluginKey, type EditorState, type Selection } from 'prosemirror-state';

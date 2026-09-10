@@ -52,6 +52,7 @@ import { EDITOR_COMMANDS, insertTable, notoKeymap } from './keymap';
 import { sortTasks, toggleTaskStatus, type TaskStampOptions } from './todo-manager';
 import { activeNodePlugin } from './active-node-plugin';
 import { viewportLayoutPlugin } from './viewport-layout';
+import { stubbableNodeViews, stubbingEnabled, viewportStubPlugin } from './viewport-stub';
 import { taskClickPlugin } from './task-click';
 import { indexBlockPlugin } from './index-block';
 import { imageFromTransfer } from './image-drop';
@@ -251,7 +252,7 @@ export class NotoEditor implements NotoEditorPort {
         const at = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? null;
         return this.handleTransfer(view, (event as DragEvent).dataTransfer, at);
       },
-      nodeViews: this.nodeViews(),
+      nodeViews: this.nodeViews(doc.childCount),
     });
     // Where the caret starts, said once, so the marker is there before any
     // key is pressed. Without it the attribute exists only after something
@@ -262,13 +263,21 @@ export class NotoEditor implements NotoEditorPort {
     this.scheduleCount();
   }
 
-  private nodeViews() {
-    return {
+  private nodeViews(childCount: number) {
+    const specialised = {
       ...mathNodeViews(),
       ...fenceNodeViews(),
       ...imageNodeViews(this.imageViews, () => this.imageContext),
       ...htmlNodeViews(this.imageViews, () => this.imageContext),
       ...tableNodeViews(),
+    };
+    // Only mount stubbable node views on documents that will actually stub.
+    // Medium notes stay on ProseMirror's default path so this layer cannot
+    // regress the size class that already sits inside a frame.
+    if (!stubbingEnabled(childCount)) return specialised;
+    return {
+      ...stubbableNodeViews(),
+      ...specialised,
     };
   }
 
@@ -299,6 +308,7 @@ export class NotoEditor implements NotoEditorPort {
       tableEditing(),
       activeNodePlugin(),
       viewportLayoutPlugin(),
+      viewportStubPlugin(),
       taskClickPlugin(this.taskStampOptions()),
 
       wikiLinkPlugin({ onFollow: (target) => this.options.onFollowWikiLink?.(target) }),

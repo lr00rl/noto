@@ -1900,6 +1900,22 @@
   contain-intrinsic-size: unset;
 }
 
+/* Height placeholders for top-level blocks the stubbing scroller has dropped
+   from the real DOM. Inline height preserves scroll position; pointer-events
+   none so a click lands on the scroller rather than a hollow shell. See
+   `viewport-stub.ts`. */
+.ProseMirror > .noto-block-stub {
+  content-visibility: visible;
+  contain-intrinsic-size: unset;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  box-sizing: border-box;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+
 /* Typora's inline marks, and the inline HTML a note uses for them ----------
  *
  * `==text==`, `^text^` and `~text~` are not markdown, so the parser keeps them

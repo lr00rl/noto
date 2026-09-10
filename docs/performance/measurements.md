@@ -181,10 +181,10 @@ Thirteen percent is worth a one line rule with no behavioural cost, but it does
 not make a two megabyte document feel immediate. A keystroke there still costs
 about 104 ms against a 16 ms frame budget. Getting further means rendering fewer
 blocks. Blanket `content-visibility` would have done that and broke input rules;
-the selective form below takes the paint win without that cost. A virtual
-scroller that drops off-screen content from the DOM entirely is still the next
-step if this is not enough. The script half, 18 ms on that file, is also above
-budget on its own and has not been broken down yet.
+the selective form below takes the paint win without that cost. The stubbing
+scroller below then drops far-off blocks from the DOM once a document is large
+enough. The script half, 18 ms on that file, is also above budget on its own
+and has not been broken down yet.
 
 ## Selective content-visibility
 
@@ -208,15 +208,52 @@ caret's block stays fully painted, which is what input rules, find and the
 outline jump need. The plugin is `viewport-layout.ts`; it decorates three blocks
 around the caret rather than walking the document.
 
-This is still not a virtual scroller: every block remains in the DOM. What it
-removes is layout and paint for the ones outside the viewport. Re-measure with
-`scripts/bench/profile-typing.mjs` after packaging; the earlier blanket run is
-the expected magnitude (about forty percent off the layout half on `large`) and
-the behavioural check is that `## ` and `- [ ] ` still convert in a long file.
+Paint deferral is still not a virtual scroller: every block remains in the DOM.
+What it removes is layout and paint for the ones outside the viewport.
+Re-measure with `scripts/bench/profile-typing.mjs` after packaging; the earlier
+blanket run is the expected magnitude (about forty percent off the layout half
+on `large`) and the behavioural check is that `## ` and `- [ ] ` still convert
+in a long file. Dropping far-off blocks from the DOM is the stubbing section
+below.
 
-A stubbing scroller that replaces off-screen blocks with height placeholders is
-the follow-up if keystrokes on `large` are still above a frame. It is a larger
-change to selection, find and node views, which is why this slice lands first.
+## Stubbing scroller (DOM virtualization slice)
+
+Paint deferral still left every top-level block mounted. The stubbing scroller
+in `src/renderer/editor/noto/viewport-stub.ts` is the follow-up that removes
+far-off blocks from the DOM:
+
+- **When:** `doc.childCount >= 3000` (`STUB_MIN_TOP_LEVEL_BLOCKS`). Medium
+  corpus notes stay fully real; large and huge turn stubbing on.
+- **What stays real:** union of (a) the selection neighbourhood with radius 2
+  and (b) an estimated y-window around the scroller with two screens of buffer.
+- **What is stubbed:** top-level paragraphs, headings, lists, rules,
+  blockquotes, frontmatter, source blocks, footnote and link definitions.
+  Custom node views (fences, tables, math, HTML) are not wrapped in this slice.
+- **How:** stubbable node views mount either a real `toDOM` shell or a
+  `div.noto-block-stub` with an inline height. Leaving / entering the real
+  window remounts the view. Heights start as estimates and are overwritten from
+  `offsetHeight` when a block is real.
+- **Observability:** `.noto-editor-host` gets `data-stub-enabled`,
+  `data-stub-real` (`from-to`) and `data-stub-count` while stubbing is active.
+
+### Re-measurement methodology (macOS packaged build)
+
+This Linux environment cannot launch `out/e2e/Noto-darwin-arm64`. After
+packaging on Apple silicon:
+
+```
+node scripts/bench/corpus.mjs
+pnpm package:e2e
+BENCH_RUNS=3 node scripts/bench/run-noto.mjs
+node scripts/bench/profile-typing.mjs large
+```
+
+Compare `large` keystroke / layout-and-paint medians to the selective
+content-visibility baseline above. Also confirm in DevTools that
+`data-stub-count` is well above zero on `large` while typing in the middle,
+and that `## ` / `- [ ] ` still convert (selection neighbourhood stays real).
+
+Unit-level checks that do run everywhere: `pnpm vitest run tests/unit/viewport-stub.test.ts`.
 
 ## What is still slow, and why
 

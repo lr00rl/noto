@@ -52,6 +52,28 @@ The editor now keeps that paint deferral for every top level block that is not
 near the selection, and forces the selection's neighbourhood fully painted.
 Input rules keep working; off-screen blocks are not laid out. Reproduce the
 layout split with `scripts/bench/profile-typing.mjs` against a packaged build.
-This still leaves every block in the DOM: if `large` remains above a frame after
-re-measurement, the next step is a stubbing scroller rather than more CSS.
+
+## Stubbing scroller, 2026-09-10
+
+Paint deferral still left every top level block in the DOM. The next step is
+now landed as a measured vertical slice rather than more CSS.
+
+`viewport-stub.ts` replaces far-off top level blocks with height placeholders
+once a document has at least 3,000 top level blocks (between the medium and
+large corpus sizes). Near-viewport blocks (two screens of buffer) and the
+selection neighbourhood stay real ProseMirror content. Only default-rendered
+types are stubbed in this slice — paragraphs, headings, lists, rules,
+blockquotes, frontmatter, source blocks, footnote and link definitions.
+Fences, tables, math and HTML blocks keep their existing node views and remain
+fully real.
+
+The feature is default-on for those large documents and off below the
+threshold, so ordinary notes are unchanged. Host dataset attributes
+`data-stub-enabled`, `data-stub-real` and `data-stub-count` expose the window
+for packaged benches.
+
+Packaged before/after keystroke numbers for `large` still need a macOS
+`out/e2e` build (`scripts/bench/profile-typing.mjs` / `run-noto.mjs`); this
+Linux agent box cannot run those darwin binaries. Unit coverage for windowing
+and the enable threshold lives in `tests/unit/viewport-stub.test.ts`.
 
