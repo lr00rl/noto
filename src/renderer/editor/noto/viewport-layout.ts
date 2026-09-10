@@ -13,8 +13,9 @@
  * being edited. Off-screen blocks keep `content-visibility: auto` from the
  * stylesheet; the blocks around the selection carry `noto-layout-live`, which
  * forces them fully painted. The active-block class already marks the selection
- * for other reasons; this plugin widens that to a one-block neighbourhood so a
- * split or a join still has a fully painted neighbour for the DOM read.
+ * for other reasons; this plugin widens that to a two-block neighbourhood so a
+ * split, a join, or a one-step block move still has a fully painted
+ * neighbour for the DOM read and on-screen paint.
  *
  * This is not a virtual scroller. The DOM still holds every block. What it
  * removes is the engine's obligation to lay out and paint the ones nobody can
@@ -31,8 +32,17 @@ export const viewportLayoutKey = new PluginKey<DecorationSet>('noto-viewport-lay
 /** Forced fully painted; paired with the rule in `noto-editor.scss`. */
 export const LAYOUT_LIVE_CLASS = 'noto-layout-live';
 
-/** How many top-level neighbours of the selection stay fully painted. */
-export const LAYOUT_LIVE_RADIUS = 1;
+/**
+ * How many top-level neighbours of the selection stay fully painted.
+ *
+ * One neighbour is enough for a split or a join to still have a painted
+ * sibling for the DOM read. Two is what a block move needs: after Alt+Up
+ * swaps a paragraph with the one above, the paragraph that used to sit
+ * immediately below is now two indices away from the selection, and with
+ * only radius 1 Chromium's `content-visibility: auto` leaves it unpainted
+ * (empty `innerText`, 1.6em intrinsic gap) even while it stays on screen.
+ */
+export const LAYOUT_LIVE_RADIUS = 2;
 
 /**
  * Top-level block indices that must stay fully painted.
