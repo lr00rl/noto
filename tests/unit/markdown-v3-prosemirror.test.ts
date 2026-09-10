@@ -257,6 +257,18 @@ describe('what the serializer must not escape', () => {
   it('still escapes an underscore that could open emphasis', () => {
     expect(roundTrip('a \\_lonely underscore')).toContain('\\_');
   });
+
+  it('leaves a star glued to a word, a metric at-sign, and an image alt alone', () => {
+    // Real emphasis is already a node by here; the text handler only ever sees
+    // a star CommonMark left literal, which used to be escaped on the way out.
+    expect(roundTrip('# CLI — *nix Agent')).toBe('# CLI — *nix Agent');
+    expect(roundTrip('*nix and **bold**')).toBe('*nix and **bold**');
+    // A real address is a link node; this shape stays text and used to gain \@.
+    expect(roundTrip('NDCG@10 and Recall@K')).toBe('NDCG@10 and Recall@K');
+    // Image alts are not phrasing, so the text handler never saw them.
+    expect(roundTrip('![img_v3_02144_abc](https://x.test/a.jpg)'))
+      .toBe('![img_v3_02144_abc](https://x.test/a.jpg)');
+  });
 });
 
 describe('a table, written back', () => {
@@ -310,5 +322,15 @@ describe('a link whose text carries another mark', () => {
   it('does the same for a reference link', () => {
     expect(roundTrip('A [**bold** and plain][ref] link.\n\n[ref]: https://e.com/x'))
       .toBe('A [**bold** and plain][ref] link.\n\n[ref]: https://e.com/x');
+  });
+});
+
+describe('a list marker the source chose', () => {
+  it('keeps a star list starred and a parenthesis list parenthesised', () => {
+    expect(roundTrip('* LLM\n* Transformer')).toBe('* LLM\n* Transformer');
+    expect(roundTrip('1) first\n2) second')).toBe('1) first\n2) second');
+    // The dialect default stays the default for the form the vault uses most.
+    expect(roundTrip('- dash\n- list')).toBe('- dash\n- list');
+    expect(roundTrip('1. one\n2. two')).toBe('1. one\n2. two');
   });
 });

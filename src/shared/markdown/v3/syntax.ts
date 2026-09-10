@@ -150,6 +150,23 @@ const VERBATIM_RUN = new RegExp(
     // escapes it and the marker stops working.
     '\\[[Tt][Oo][Cc]\\]',
     `${WORD}+(?:_+${WORD}+)+`,
+    /*
+     * A metric or handle that is not an email: `NDCG@10`, `Recall@K`.
+     *
+     * GFM escapes `@` between word characters because `user@host` can open an
+     * autolink. A real address is already a link node by the time it reaches
+     * the text handler, so this run only ever sees the metric form, which the
+     * parser leaves as ordinary text and which editing used to fill with
+     * backslashes.
+     */
+    `${WORD}+@${WORD}+`,
+    /*
+     * A lone star glued to a word, `*nix` or `*BSD`. Real emphasis is already
+     * an emphasis node, so the text handler never sees its delimiters. What it
+     * does see is a star that CommonMark left literal, and the serializer then
+     * escaped "just in case", rewriting every `*nix` in an edited heading.
+     */
+    `\\*[A-Za-z][A-Za-z0-9.+_-]*`,
   ].join('|'),
   'g',
 );
@@ -262,42 +279,108 @@ const hardBreakAsTwoSpaces: ToMarkdownOptions = {
   },
 };
 
+/**
+ * Emit a string with the dialect's verbatim runs left alone.
+ *
+ * Shared by the text handler and the image handler: an image alt is not a
+ * text node, so without this the same identifier that survives in a paragraph
+ * is escaped inside `![img_v3_…](…)`.
+ */
+function emitWithVerbatimRuns(
+  value: string,
+  state: { safe: (value: string, info: { before: string; after: string }) => string },
+  info: { before: string; after: string },
+): string {
+  VERBATIM_RUN.lastIndex = 0;
+  if (!VERBATIM_RUN.test(value)) return state.safe(value, info);
+
+  /*
+   * Each ordinary segment is escaped with its real neighbours.
+   *
+   * `safe` decides from `before` and `after` whether a character sits at a
+   * boundary that needs escaping, so a segment escaped as though it were
+   * the whole string gets its leading and trailing spaces turned into
+   * `&#x20;`. The neighbours here are known exactly: a segment before a
+   * link is followed by `[`, one after a link is preceded by `]`.
+   */
+  VERBATIM_RUN.lastIndex = 0;
+  let out = '';
+  let last = 0;
+  for (;;) {
+    const match = VERBATIM_RUN.exec(value);
+    if (match === null) break;
+    if (match.index > last) {
+      out += state.safe(value.slice(last, match.index), {
+        ...info,
+        before: last === 0 ? info.before : ']',
+        after: '[',
+      });
+    }
+    out += match[0];
+    last = match.index + match[0].length;
+  }
+  if (last < value.length) {
+    out += state.safe(value.slice(last), { ...info, before: ']' });
+  }
+  return out;
+}
+
 const verbatimRunsInText: ToMarkdownOptions = {
   handlers: {
     text(node, _parent, state, info) {
-      const value = node.value;
-      VERBATIM_RUN.lastIndex = 0;
-      if (!VERBATIM_RUN.test(value)) return state.safe(value, info);
-
-      /*
-       * Each ordinary segment is escaped with its real neighbours.
-       *
-       * `safe` decides from `before` and `after` whether a character sits at a
-       * boundary that needs escaping, so a segment escaped as though it were
-       * the whole string gets its leading and trailing spaces turned into
-       * `&#x20;`. The neighbours here are known exactly: a segment before a
-       * link is followed by `[`, one after a link is preceded by `]`.
-       */
-      VERBATIM_RUN.lastIndex = 0;
-      let out = '';
-      let last = 0;
-      for (;;) {
-        const match = VERBATIM_RUN.exec(value);
-        if (match === null) break;
-        if (match.index > last) {
-          out += state.safe(value.slice(last, match.index), {
-            ...info,
-            before: last === 0 ? info.before : ']',
-            after: '[',
-          });
+      return emitWithVerbatimRuns(node.value, state, info);
+    },
+    /*
+     * An image alt is a plain string, not phrasing, so the text handler never
+     * sees it. Typora-generated names are snake_case identifiers; escaping
+     * every underscore rewrote the alt the first time anybody edited the
+     * paragraph holding the image.
+     */
+    image(node, parent, state, info) {
+      if (!node.alt) return defaultHandlers.image(node, parent, state, info);
+      const original = state.safe.bind(state);
+      state.safe = ((value: string, safeInfo: { before: string; after: string }) => {
+        // Only the alt is passed with `after: ']'` immediately after `![`.
+        if (safeInfo.after === ']' && safeInfo.before.endsWith('![')) {
+          return emitWithVerbatimRuns(value, { safe: original }, safeInfo);
         }
-        out += match[0];
-        last = match.index + match[0].length;
+        return original(value, safeInfo);
+      }) as typeof state.safe;
+      try {
+        return defaultHandlers.image(node, parent, state, info);
+      } finally {
+        state.safe = original;
       }
-      if (last < value.length) {
-        out += state.safe(value.slice(last), { ...info, before: ']' });
+    },
+  },
+};
+
+/**
+ * A list keeps the marker its source used.
+ *
+ * The vault writes `-` most often, which is the serializer default, but a star
+ * list still appears thousands of times. mdast does not record the marker, so
+ * the editor carries it on the node and the handler swaps the option for the
+ * duration of this list only.
+ */
+const listMarkerFromNode: ToMarkdownOptions = {
+  handlers: {
+    list(node, parent, state, info) {
+      const data = node.data as { bullet?: string; delimiter?: string } | undefined;
+      const previousBullet = state.options.bullet;
+      const previousOrdered = state.options.bulletOrdered;
+      if (!node.ordered && (data?.bullet === '*' || data?.bullet === '+' || data?.bullet === '-')) {
+        state.options.bullet = data.bullet;
       }
-      return out;
+      if (node.ordered && (data?.delimiter === '.' || data?.delimiter === ')')) {
+        state.options.bulletOrdered = data.delimiter;
+      }
+      try {
+        return defaultHandlers.list(node, parent, state, info);
+      } finally {
+        state.options.bullet = previousBullet;
+        state.options.bulletOrdered = previousOrdered;
+      }
     },
   },
 };
@@ -338,7 +421,7 @@ const serializerOptions: ToMarkdownOptions = {
     // CommonMark's own flanking rules and, believing the run cannot close,
     // escapes the Chinese character after it into a numeric reference.
     cjkFriendlyToMarkdown(),
-    tablesAsTheVaultWritesThem(tildeOnlyInPairs(gfmToMarkdown({ tablePipeAlign: false }))), mathToMarkdown(), frontmatterToMarkdown(), verbatimRunsInText, bareAutolink, hardBreakAsTwoSpaces],
+    tablesAsTheVaultWritesThem(tildeOnlyInPairs(gfmToMarkdown({ tablePipeAlign: false }))), mathToMarkdown(), frontmatterToMarkdown(), verbatimRunsInText, listMarkerFromNode, bareAutolink, hardBreakAsTwoSpaces],
 };
 
 /**

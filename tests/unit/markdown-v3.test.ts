@@ -4,6 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { splitBlocks } from '../../src/shared/markdown/v3/blocks';
 import { parseDocument, toLf } from '../../src/shared/markdown/v3/document';
 import { identityTransaction, serializeDocument } from '../../src/shared/markdown/v3/serialize';
+import { parseMarkdown, renderMarkdown, topLevelNodes } from '../../src/shared/markdown/v3/syntax';
+import { blockFromSpan } from '../../src/shared/markdown/v3/pm/from-mdast';
+import { blockToMarkdown } from '../../src/shared/markdown/v3/pm/to-mdast';
 import {
   NOTO_MARKDOWN_VERSION,
   type NotoDocument,
@@ -346,5 +349,42 @@ describe('an unchanged save skips the reparse without weakening the result', () 
     expect(result.status).toBe('failed');
     if (result.status !== 'failed') throw new Error('expected failure');
     expect(result.code).toBe('REPARSE_MISMATCH');
+  });
+});
+
+describe('dialect decisions that stay', () => {
+  it('collapses a long rule when that block is the one rewritten', () => {
+    // Three dashes are the vault's majority form. A neighbouring edit already
+    // leaves a six-dash rule alone (see above); this locks the choice when the
+    // rule itself is re-serialized.
+    const node = topLevelNodes(parseMarkdown('------\n'))[0];
+    expect(renderMarkdown(node).trim()).toBe('---');
+  });
+
+  it('strips trailing spaces that cannot be a hard break', () => {
+    // Two spaces at the end of a heading cannot break, and two at the end of a
+    // paragraph have nothing to break before. The bytes go; the meaning does not.
+    const heading = splitBlocks('# Title with spaces   \n').spans[0];
+    expect(blockToMarkdown(blockFromSpan(heading))).toBe('# Title with spaces');
+    const paragraph = splitBlocks('A paragraph with spaces   \n').spans[0];
+    expect(blockToMarkdown(blockFromSpan(paragraph))).toBe('A paragraph with spaces');
+  });
+
+  it('still leaves a six-dash rule and a padded table alone beside an edit', () => {
+    const source = [
+      'Lead paragraph.',
+      '',
+      '------',
+      '',
+      '| Field | Meaning |',
+      '|-------|---------|',
+      '| a     | first   |',
+      '',
+    ].join('\n');
+    const document = parsed(source);
+    const output = Buffer.from(serialized(document, editing(document, 0, 'Edited lead.'))).toString('utf8');
+    expect(output).toContain('------');
+    expect(output).toContain('|-------|---------|');
+    expect(output).toContain('| a     | first   |');
   });
 });

@@ -833,6 +833,24 @@ What remains after those is small and scattered. The corpus measurement has
 paid for itself four times over and this is where it stops being the best
 place to look.
 
+A later pass on the same 900-note sample, after the wins below, reads 45,524
+blocks with 3,105 different, 6.8%. The drop is three concrete escapes the
+serializer no longer makes, and the list marker the source used:
+
+- a star glued to a word (`*nix`) stays unescaped, because real emphasis is
+  already a node by the time the text handler runs;
+- a metric at-sign (`NDCG@10`) stays unescaped; a real address is already a
+  link node, so the text handler only ever sees the metric form;
+- an image alt that is a snake_case identifier keeps its underscores, which
+  the text handler never saw because an alt is a plain string;
+- a list written with `*` or `1)` keeps that marker when the list itself is
+  edited, matching how a fence already remembers whether it was fenced.
+
+What still dominates is intentional: the long rule, trailing whitespace, and
+the nested-list indent near-tie recorded in §58. Defensive escapes of bare
+`[` in isolated blocks stay, because a block save cannot see definitions
+elsewhere in the file.
+
 ## 47. A band of rail colour across a window with no rail. Closed.
 
 Found by opening the window at 1440, 900 and 640 and looking at each. Below

@@ -220,12 +220,16 @@ export function blockToMdast(node: ProseNode): RootContent {
       const ordered = node.type.name === 'ordered_list';
       const children = [] as ReturnType<typeof listItemToMdast>[];
       node.forEach((item) => children.push(listItemToMdast(item)));
+      const data = ordered
+        ? (node.attrs.delimiter && node.attrs.delimiter !== '.' ? { delimiter: node.attrs.delimiter as string } : undefined)
+        : (node.attrs.bullet && node.attrs.bullet !== '-' ? { bullet: node.attrs.bullet as string } : undefined);
       return {
         type: 'list',
         ordered,
         start: ordered ? node.attrs.start : null,
         spread: node.attrs.spread ?? false,
         children,
+        ...(data ? { data } : {}),
       };
     }
     case 'table':
