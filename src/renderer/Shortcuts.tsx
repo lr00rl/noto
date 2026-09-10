@@ -76,6 +76,7 @@ export function shortcutGroups(mac: boolean): Group[] {
         { keys: [shift(mac) + mod('T', mac)], what: 'Open again the note closed most recently.' },
         { keys: ['Themes'], what: 'The View menu lists the stylesheets in your themes folder, and opens the folder to add one.' },
         { keys: ['<!-- note-assistant:index -->'], what: 'A generated index block is drawn as its list of links, and its markdown is left alone.' },
+        { keys: ['<!-- note-assistant:start -->'], what: 'An issued Related Notes block gets its own chrome (title, tags, reasons), distinct from a directory index.' },
         { keys: ['Remote'], what: 'A script on this machine can drive the editor once the Remote pane says so. Off until you switch it on.' },
       ],
     },

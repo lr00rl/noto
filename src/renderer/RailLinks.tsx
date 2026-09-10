@@ -7,6 +7,11 @@
  * and the outline, so a note's neighbours are a click away while it is
  * being read. The lists come from main, which reads the graph; nothing is
  * computed here, so this cannot disagree with the plugin.
+ *
+ * Hub MOCs are often absent from the graph (`moc: true`). When the graph
+ * has not met the note, optional seeded outbound links — wiki targets
+ * written in the note itself — still fill "Links to", so a dense map is
+ * not an empty "unknown note" panel.
  */
 
 import { useEffect, useState } from 'react';
@@ -19,6 +24,11 @@ export interface RailLinksProps {
   readonly currentPath: string | null;
   readonly onLinks: (path: string) => Promise<LinksOutcome>;
   readonly onOpen: (path: string) => void;
+  /**
+   * Outbound links derived from the open note when the graph has not met it.
+   * Empty or omitted leaves the unknown-note status unchanged.
+   */
+  readonly seedLinks?: readonly WorkspaceLinkV1[];
 }
 
 function Section({ title, items, onOpen, testId }: {
@@ -45,7 +55,7 @@ function Section({ title, items, onOpen, testId }: {
   );
 }
 
-export function RailLinks({ currentPath, onLinks, onOpen }: RailLinksProps) {
+export function RailLinks({ currentPath, onLinks, onOpen, seedLinks = [] }: RailLinksProps) {
   const [reply, setReply] = useState<WorkspaceLinksReplyV1 | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -79,6 +89,16 @@ export function RailLinks({ currentPath, onLinks, onOpen }: RailLinksProps) {
     );
   }
   if (!reply.known) {
+    if (seedLinks.length > 0) {
+      return (
+        <div className="rail-links" data-testid="links-panel" data-seeded="true">
+          <p className="rail-empty" data-testid="links-status">
+            The graph has not met this note; showing links written in it.
+          </p>
+          <Section title="Links to" items={seedLinks} onOpen={onOpen} testId="links-out" />
+        </div>
+      );
+    }
     return <p className="rail-empty" data-testid="links-status">The graph has not met this note yet.</p>;
   }
   const nothing = reply.backlinks.length + reply.links.length + reply.related.length === 0;

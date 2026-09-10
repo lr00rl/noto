@@ -293,6 +293,105 @@
    note to a line, title first and path after in small type. The measurements
    are the plugin's own. */
 .ProseMirror .noto-index-source { display: none; }
+.ProseMirror .noto-related-source { display: none; }
+
+/* Issued Related Notes: distinct from the directory-index list so the two
+   marker families never share one chrome. */
+.ProseMirror .noto-related {
+  margin: 14px 0 18px;
+  padding: 10px 12px 12px;
+  border: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ink) 2%, transparent);
+  font-family: tokens.$ui;
+}
+
+.ProseMirror .noto-related-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  user-select: none;
+}
+
+.ProseMirror .noto-related-title {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--muted);
+  opacity: 0.8;
+  letter-spacing: 0.02em;
+}
+
+.ProseMirror .noto-related-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.ProseMirror .noto-related-tag {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--accent);
+  opacity: 0.85;
+}
+
+.ProseMirror .noto-related-kicker {
+  margin-top: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  opacity: 0.55;
+  user-select: none;
+}
+
+.ProseMirror .noto-related-list {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.ProseMirror .noto-related-item,
+.ProseMirror .noto-related-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+}
+
+.ProseMirror .noto-related-item { cursor: pointer; }
+.ProseMirror .noto-related-item.noto-related-item:hover {
+  background: color-mix(in srgb, var(--ink) 3.5%, transparent);
+}
+.ProseMirror .noto-related-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.ProseMirror .noto-related-item-title {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--ink);
+  opacity: 0.9;
+}
+
+.ProseMirror .noto-related-item-reason {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+  opacity: 0.7;
+}
+
 
 /* `[TOC]` drawn as Typora draws it: the headings as a list, in the accent
    like the links they are, stepped in by level. The marker's own paragraph

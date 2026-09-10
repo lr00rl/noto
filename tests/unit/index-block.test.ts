@@ -10,7 +10,9 @@ import { describe, expect, it } from 'vitest';
 import { parseSingleBlock, splitBlocks } from '../../src/shared/markdown/v3/blocks';
 import { blockFromSpan } from '../../src/shared/markdown/v3/pm/from-mdast';
 import { notoSchema } from '../../src/shared/markdown/v3/pm/schema';
-import { findIndexRegions, parseIndexBlock } from '../../src/renderer/editor/noto/index-block';
+import {
+  findIndexRegions, findRelatedRegions, parseIndexBlock,
+} from '../../src/renderer/editor/noto/index-block';
 
 const docOf = (markdown: string) => notoSchema.nodes.doc.create(
   null,
@@ -53,10 +55,30 @@ describe('findIndexRegions', () => {
     expect(docOf(INDEX).child(regions[0].to).textContent.trim()).toBe('<!-- note-assistant:index:end -->');
   });
 
-  it('recognises the older marker pair too, since the generator renamed it once', () => {
-    const old = INDEX.replace('note-assistant:index:start', 'note-assistant:start')
-      .replace('note-assistant:index:end', 'note-assistant:end');
-    expect(findIndexRegions(docOf(old))).toHaveLength(1);
+  it('keeps index and related marker families distinct', () => {
+    const regions = findIndexRegions(docOf(INDEX));
+    expect(regions).toHaveLength(1);
+    expect(regions[0].family).toBe('index');
+
+    const related = [
+      '<!-- note-assistant:start -->',
+      '',
+      '## Note Assistant',
+      '',
+      'Tags: #vpn #linux',
+      '',
+      'Related Notes:',
+      '',
+      '- [[../A000_Theoretical_Knowledge/A404_Linux/00_Linux总览|Linux 总览]] - hub',
+      '- [[同目录笔记|另一篇]] - explicit link',
+      '',
+      '<!-- note-assistant:end -->',
+      '',
+    ].join('\n');
+    const found = findIndexRegions(docOf(related));
+    expect(found).toHaveLength(1);
+    expect(found[0].family).toBe('related');
+    expect(findRelatedRegions(docOf(related))).toHaveLength(1);
   });
 
   it('ignores a start with no matching end, rather than swallowing the rest of the note', () => {
@@ -103,5 +125,39 @@ describe('parseIndexBlock', () => {
   it('uses the last path segment as the title when none was written', () => {
     const block = parseIndexBlock(docOf('- [[a/b/c]]\n').content.content);
     expect(block.sections[0].items[0]).toMatchObject({ target: 'a/b/c', title: 'c' });
+  });
+});
+
+describe('parseRelatedBlock', () => {
+  const RELATED = [
+    '<!-- note-assistant:start -->',
+    '',
+    '## Note Assistant',
+    '',
+    'Tags: #vpn #tunnel',
+    '',
+    'Related Notes:',
+    '',
+    '- [[../A404_Linux/tcp调优|TCP 调优]] - same theme',
+    '- [[代理与隧道|代理与隧道]] - explicit link',
+    '',
+    '<!-- note-assistant:end -->',
+    '',
+  ].join('\n');
+
+  it('reads title, tags, and reasons without looking like an index', () => {
+    const block = findRelatedRegions(docOf(RELATED))[0].block;
+    expect(block.title).toBe('Note Assistant');
+    expect(block.tags).toEqual(['vpn', 'tunnel']);
+    expect(block.items).toEqual([
+      { target: '../A404_Linux/tcp调优', title: 'TCP 调优', reason: 'same theme' },
+      { target: '代理与隧道', title: '代理与隧道', reason: 'explicit link' },
+    ]);
+  });
+
+  it('stays a related region, not an index family', () => {
+    const region = findIndexRegions(docOf(RELATED))[0];
+    expect(region.family).toBe('related');
+    expect(findRelatedRegions(docOf(RELATED))[0].block.tags).toContain('vpn');
   });
 });

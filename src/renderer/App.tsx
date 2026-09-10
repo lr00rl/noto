@@ -60,7 +60,9 @@ import { copyThroughSelection } from './editor/noto/clipboard';
 import type { WorkspaceEntryRefusalV1, WorkspaceExportKindV1 } from '../shared/workspace/v1/contracts';
 import { EXPORT_PALETTE_COMMANDS } from '../shared/export/targets';
 import { EMPTY_TRAIL, forget as forgetTrail, record as recordTrail, stepBack, stepForward, type Trail } from './trail';
-import { wikiCandidates } from './wiki-target';
+import { wikiCandidates, wikiTargetFor } from './wiki-target';
+import { seedOutboundLinks } from './seed-links';
+import { wikiLinkText } from './editor/noto/wiki-trigger';
 import type { NotoEditor } from './editor/noto/NotoEditor';
 import {
   acceptedSaveOutcome,
@@ -1336,6 +1338,18 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
     return result.ok ? { reply: result.value } : { error: result.error.message };
   }, []);
 
+  /** Outbound wiki links in the open note — Links-rail fallback for MOC hubs. */
+  const seedLinks = useMemo(() => {
+    const notePath = active?.opened.path ?? null;
+    const root = folder.root;
+    if (notePath === null || root === null || !notePath.startsWith(root)) return [];
+    const fromRelative = notePath.slice(root.length).replace(/^[\\/]+/, '').replace(/\\/g, '/');
+    const markdown = editorRef.current?.getMarkdown()
+      ?? active?.opened.document.text
+      ?? '';
+    return seedOutboundLinks(markdown, fromRelative, fileIndex.entries);
+  }, [active?.opened.path, active?.opened.document.text, active?.document.revisionId, folder.root, fileIndex.entries, editorsReady]);
+
   const searchContent = useCallback(async (query: string, flags: SearchFlags = PLAIN_FLAGS, scope = '') => {
     const result = await window.notoWorkspace.searchContent({
       version: 1, requestId: rid('search-content'), query, scope, ...flags,
@@ -1371,19 +1385,20 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
   const insertWikiLink = useCallback((entry: WorkspaceIndexEntryV1, atTrigger = false) => {
     const editor = editorRef.current;
     if (!editor) return;
-    // The bare name when it is unambiguous in the folder, the relative path
-    // when it is not, so the common case stays short and the ambiguous one
-    // still resolves.
-    const base = entry.name.replace(/\.md$/i, '');
-    const sameName = fileIndex.entries.filter(
-      (candidate) => candidate.name.replace(/\.md$/i, '') === base,
-    );
-    const target = sameName.length > 1 ? entry.relativePath.replace(/\.md$/i, '') : base;
+    // Note-relative target via wikiTargetFor (same arithmetic apply-graph and
+    // MOC authors use), with |title when the shown name differs from the path.
+    const here = active?.opened.path ?? null;
+    const root = folder.root;
+    const fromRelative = here !== null && root !== null && here.startsWith(root)
+      ? here.slice(root.length).replace(/^[\\/]+/, '').replace(/\\/g, '/')
+      : entry.relativePath;
+    const target = wikiTargetFor(entry.relativePath, fromRelative);
+    const title = entry.name.replace(/\.md$/i, '');
     // Typed brackets are replaced by the link; a link asked for from quick
     // open goes in at the caret, where there are no brackets to replace.
-    if (atTrigger && editor.replaceWikiTrigger(target)) return;
-    editor.insertText(`[[${target}]]`);
-  }, [fileIndex.entries]);
+    if (atTrigger && editor.replaceWikiTrigger(target, title)) return;
+    editor.insertText(wikiLinkText(target, title));
+  }, [active?.opened.path, folder.root]);
 
   /**
    * A document reported that its unsaved state changed.
@@ -1992,6 +2007,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
               currentPath: active?.opened.path ?? null,
               onLinks: noteLinks,
               onOpen: (target) => { void openPath(target); },
+              seedLinks,
             }}
             search={{
               onSearch: searchContent,
