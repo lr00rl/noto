@@ -5,6 +5,23 @@ import { packagedExecutable } from './packaged-app';
 
 const resultRoot = path.join(process.cwd(), 'test-results', 'code-viewer');
 
+async function invokeMenu(app: ElectronApplication, id: string): Promise<void> {
+  await app.evaluate(({ Menu }, itemId) => {
+    const find = (items: Electron.MenuItem[]): Electron.MenuItem | null => {
+      for (const item of items) {
+        if (item.id === itemId) return item;
+        const nested = item.submenu ? find(item.submenu.items) : null;
+        if (nested) return nested;
+      }
+      return null;
+    };
+    const menu = Menu.getApplicationMenu();
+    const target = menu ? find(menu.items) : null;
+    if (!target) throw new Error(`No menu item with id ${itemId}`);
+    target.click();
+  }, id);
+}
+
 async function launch(folder: string): Promise<{ app: ElectronApplication; page: Page }> {
   const userData = path.join(folder, 'user-data');
   await mkdir(userData, { recursive: true });
@@ -17,7 +34,19 @@ async function launch(folder: string): Promise<{ app: ElectronApplication; page:
   });
   const page = await app.firstWindow();
   await page.waitForSelector('[data-testid="noto-editor"]', { state: 'visible', timeout: 30_000 });
+  // Sized before the tree is awaited: under a tiling WM a new window can open
+  // at the floor where the rail is hidden.
   await page.setViewportSize({ width: 1200, height: 700 });
+  // `--folder=` marks the vault as chosen so the rail springs open. Give that
+  // event a moment; only toggle if it never arrived (same menu path the
+  // file-tree specs use), so we do not close a rail that is mid-open.
+  const tree = page.getByTestId('file-tree');
+  try {
+    await tree.waitFor({ state: 'visible', timeout: 5_000 });
+  } catch {
+    await invokeMenu(app, 'toggle-sidebar');
+    await tree.waitFor({ state: 'visible', timeout: 30_000 });
+  }
   return { app, page };
 }
 
@@ -28,7 +57,6 @@ test.describe('code viewer', () => {
     await mkdir(workspace, { recursive: true });
     const { app, page } = await launch(workspace);
     try {
-      await page.getByTestId('file-tree').waitFor({ state: 'visible', timeout: 10_000 });
       await page.locator('[data-testid="tree-file"][data-path$="sample.py"]').click();
 
       const viewer = page.getByTestId('code-viewer');
