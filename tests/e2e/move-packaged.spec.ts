@@ -42,8 +42,16 @@ async function launch(name: string): Promise<{ app: ElectronApplication; page: P
   return { app, page, file };
 }
 
-/** The document's paragraphs, in the order they are drawn. */
-const paragraphs = (page: Page) => page.locator('.ProseMirror > p').allInnerTexts();
+/**
+ * The document's paragraphs, in document order.
+ *
+ * Reads `textContent` rather than `innerText`: off-selection top-level blocks
+ * use `content-visibility: auto`, and Chromium then reports empty `innerText`
+ * even when the bytes are still in the tree (see viewport-layout live radius).
+ */
+const paragraphs = (page: Page) => page.locator('.ProseMirror > p').evaluateAll(
+  (nodes) => nodes.map((node) => node.textContent ?? ''),
+);
 
 test.describe('moving what the caret is in', () => {
   test('takes a paragraph past its neighbour and back', async () => {
