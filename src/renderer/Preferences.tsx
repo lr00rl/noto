@@ -624,6 +624,13 @@ export function Preferences({
                   testId="setting-auto-pair"
                 />
                 <Switch
+                  label="Task check time"
+                  hint="Appends ✅ and today's date when a task is checked. Off leaves a bare tick."
+                  checked={settings.todoCheckTime}
+                  onChange={(value) => onChange({ todoCheckTime: value })}
+                  testId="setting-todo-check-time"
+                />
+                <Switch
                   label="Indent guides in code blocks"
                   hint="A rule at each tab stop of a line's indentation."
                   checked={settings.codeIndentGuides}
