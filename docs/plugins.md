@@ -124,9 +124,10 @@ it back is the intended shape; Title Shift and Markdown Padding both do
 exactly this, and their pure transforms in
 `src/renderer/plugins/bundled/transforms.ts` are unit-tested on their own.
 
-Commands appear in the command palette (`Cmd+K`) while the plugin is active,
-under the title the manifest gives them. Hotkeys are dispatched by the shell
-and reach the plugin through the registry, so they work wherever focus is.
+Commands appear in the command palette (`Cmd+Shift+P`) while the plugin is
+active, under the title the manifest gives them. Hotkeys are dispatched by
+the shell and reach the plugin through the registry, so they work wherever
+focus is.
 
 ## Lifecycle, as the reader sees it
 
@@ -195,6 +196,29 @@ build:
 Each of these is a known gap rather than a design choice, and the order above
 is the order they are likely to close.
 
+## What is a plugin, and what is the editor
+
+A plugin is a capability boundary: a manifest, a lifecycle, and code that
+cannot do anything it did not declare. Title Shift and Markdown Padding are
+that. Semantic Focus and Fixture Reader are bundled examples of the same
+shape, kept under Examples in Preferences so they are not mistaken for
+features.
+
+Things that used to be Typora plugins and are now native: wider writing,
+tree guides, fuzzy search (in-process, no `fzf`/`rg` binary), wiki links,
+the Links rail's explicit backlinks, and reading note-assistant's graph
+when that file is already in the vault. Related-note ranking is still the
+plugin's data. A future plugin may shell out to ripgrep; the editor will not
+quietly require it.
+
+If a behaviour needs a grant, a lease, or a declared command, it is a
+plugin. If it is how the editor opens, searches, or follows a note, it is
+built in. Mixing the two is how a rail labelled Links sat empty in a vault
+full of wiki links.
+
+A canvas (a `.canvas.tsx` file drawn with `@roobli/canvas`) is also editor
+behaviour, not a plugin. Noto does not host one yet. See [canvas.md](canvas.md).
+
 ## Reading the examples
 
 `Semantic Focus` is the smallest complete renderer plugin: a setting, a
@@ -202,4 +226,4 @@ decoration, a command and a hotkey, in
 `src/renderer/plugins/renderer-proof/plugin.ts`. `Fixture Reader` is the
 service example: it asks for a folder grant, reads inside it, and can be made
 to prove that a path outside it is refused. Both are kept in the build as
-examples rather than features, and Preferences says so under their names.
+examples rather than features, and Preferences keeps them behind Examples.

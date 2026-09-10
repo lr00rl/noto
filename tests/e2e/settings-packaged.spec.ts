@@ -205,6 +205,43 @@ test.describe('settings', () => {
     }
   });
 
+  test('the dialog keeps one size across sections', async () => {
+    const { app, page } = await launch('size');
+    try {
+      await invokeMenu(app, 'settings');
+      const panel = page.getByTestId('settings-panel');
+      await expect(panel).toBeVisible();
+      // The open animation scales from 98%, so a box taken on the first
+      // frame is the small one. Wait until the panel is the size it will
+      // keep, then check the tabs against that, not against each other
+      // mid-flight.
+      await expect.poll(async () => Math.round((await panel.boundingBox())?.width ?? 0)).toBe(840);
+      const sizeOf = async () => {
+        const box = await panel.boundingBox();
+        if (!box) throw new Error('preferences has no box');
+        return { width: Math.round(box.width), height: Math.round(box.height) };
+      };
+      const appearance = await sizeOf();
+      await page.getByTestId('pref-plugins').click();
+      expect(await sizeOf()).toEqual(appearance);
+      await page.getByTestId('pref-markdown').click();
+      expect(await sizeOf()).toEqual(appearance);
+
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.getByTestId('pref-appearance').click();
+      await panel.screenshot({ path: path.join(resultRoot, 'prefs-appearance-1440.png') });
+      await page.getByTestId('pref-images').click();
+      await panel.screenshot({ path: path.join(resultRoot, 'prefs-images-1440.png') });
+      await page.getByTestId('pref-plugins').click();
+      await panel.screenshot({ path: path.join(resultRoot, 'prefs-plugins-1440.png') });
+      await page.setViewportSize({ width: 720, height: 560 });
+      await page.getByTestId('pref-appearance').click();
+      await panel.screenshot({ path: path.join(resultRoot, 'prefs-appearance-720.png') });
+    } finally {
+      await app.close();
+    }
+  });
+
   test('refuses a setting the app does not define', async () => {
     const { app, page } = await launch('reject');
     try {

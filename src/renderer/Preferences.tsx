@@ -264,7 +264,7 @@ function ThemeFile({ settings, onChange, problem, onReload }: {
     <div className="pref-row pref-stack">
       <span className="pref-label">
         Custom stylesheet
-        <small>An absolute path to a CSS file. It wins over the theme, so <code>:root &#123; --accent: … &#125;</code> is enough to retheme. Leave empty for none.</small>
+        <small>An absolute path. It wins over the theme. Leave empty for none.</small>
       </span>
       <span className="pref-file">
         <input
@@ -313,7 +313,7 @@ function ImageDestination({ value, custom, onPick }: {
     <div className="pref-row pref-stack">
       <span className="pref-label">
         When a picture is pasted or dropped
-        <small>The file is copied into the vault and the note refers to it by a relative path, so the note and its pictures travel together.</small>
+        <small>Copied into the vault. The note keeps a relative path.</small>
       </span>
       <div className="pref-cards" role="radiogroup" aria-label="Where a pasted picture is written">
         {options.map((option) => (
@@ -583,22 +583,21 @@ export function Preferences({
                 <Slider label="Line height" setting="lineHeight" value={settings.lineHeight}
                   format={(value) => value.toFixed(2)} testId="setting-line-height"
                   onChange={(value) => onChange({ lineHeight: Number(value.toFixed(2)) })} />
-                <Choices label="Document font" hint="What the note itself is set in."
+                <Choices label="Document font"
                   options={FACES} value={settings.proseFace}
                   onPick={(value) => onChange({ proseFace: value })} testPrefix="face" />
-                <Choices label="Page width" hint="Also on the View menu."
+                <Choices label="Page width"
                   options={WIDTHS} value={settings.widthMode}
                   onPick={(value) => onChange({ widthMode: value })} testPrefix="width" />
                 <Switch
                   label="Open the rail at launch"
-                  hint="Start with the file tree showing."
                   checked={settings.sidebarOnLaunch}
                   onChange={(value) => onChange({ sidebarOnLaunch: value })}
                   testId="setting-sidebar-launch"
                 />
                 <Switch
                   label="Keep the window on top"
-                  hint="Above every other window, for writing beside something you are reading from."
+                  hint="Above every other window."
                   checked={settings.alwaysOnTop}
                   onChange={(value) => onChange({ alwaysOnTop: value })}
                   testId="setting-always-on-top"
@@ -625,7 +624,6 @@ export function Preferences({
                 />
                 <Switch
                   label="Indent guides in code blocks"
-                  hint="A rule at each tab stop of a line's indentation."
                   checked={settings.codeIndentGuides}
                   onChange={(value) => onChange({ codeIndentGuides: value })}
                   testId="setting-code-indent-guides"
@@ -653,21 +651,13 @@ export function Preferences({
                 />
                 <Switch
                   label="Line numbers in code blocks"
-                  hint="The gutter is as wide as each block's own line count."
                   checked={settings.codeLineNumbers}
                   onChange={(value) => onChange({ codeLineNumbers: value })}
                   testId="setting-code-line-numbers"
                 />
                 <Switch
-                  label="Load images from the web"
-                  hint="Every web image in a note is a request to its server. Off shows the image's name in its place. Images in the open folder always show."
-                  checked={settings.remoteImages}
-                  onChange={(value) => onChange({ remoteImages: value })}
-                  testId="setting-remote-images"
-                />
-                <Switch
                   label="Save automatically"
-                  hint="Save on a timer after typing stops. A save is still refused if the file changed underneath it."
+                  hint="After typing stops. Still refused if the file changed underneath."
                   checked={settings.autoSave}
                   onChange={(value) => onChange({ autoSave: value })}
                   testId="setting-auto-save"
@@ -685,21 +675,18 @@ export function Preferences({
                 <p className="pref-group">Substitutions</p>
                 <Switch
                   label="Smart quotes"
-                  hint="Straight quotes become curled ones as you type."
                   checked={settings.smartQuotes}
                   onChange={(value) => onChange({ smartQuotes: value })}
                   testId="setting-smart-quotes"
                 />
                 <Switch
                   label="Smart dashes"
-                  hint="Two hyphens become an em dash."
                   checked={settings.smartDashes}
                   onChange={(value) => onChange({ smartDashes: value })}
                   testId="setting-smart-dashes"
                 />
                 <Switch
                   label="Ellipsis"
-                  hint="Three full stops become one character."
                   checked={settings.smartEllipsis}
                   onChange={(value) => onChange({ smartEllipsis: value })}
                   testId="setting-smart-ellipsis"
@@ -749,7 +736,7 @@ export function Preferences({
                 />
                 <Switch
                   label="Load images from the web"
-                  hint="Off shows a placeholder for a `https://` picture and leaves the note untouched."
+                  hint="Off shows a placeholder for a web picture and leaves the note untouched. Pictures in the open folder always show."
                   checked={settings.remoteImages}
                   onChange={(value) => onChange({ remoteImages: value })}
                   testId="setting-remote-images-image-pane"

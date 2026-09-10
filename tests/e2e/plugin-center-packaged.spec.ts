@@ -57,6 +57,7 @@ async function pickPlugin(page: Page, name: string) {
 async function openPluginCenter(page: Page): Promise<void> {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.getByTestId('plugin-toggle').click();
+  await page.getByTestId('plugin-examples-toggle').click();
   await pickPlugin(page, 'Semantic Focus');
   await expect(page.getByTestId('renderer-plugin-state')).toBeVisible();
 }
@@ -67,6 +68,30 @@ async function openPluginCenter(page: Page): Promise<void> {
  */
 function primaryButton(page: Page, section: 'renderer-plugin-state' | 'service-state') {
   return page.getByTestId(section).locator('button.plugin-primary');
+}
+
+async function invokeMenu(app: ElectronApplication, id: string): Promise<void> {
+  await app.evaluate(({ Menu }, itemId) => {
+    const find = (items: Electron.MenuItem[]): Electron.MenuItem | null => {
+      for (const item of items) {
+        if (item.id === itemId) return item;
+        const nested = item.submenu ? find(item.submenu.items) : null;
+        if (nested) return nested;
+      }
+      return null;
+    };
+    const menu = Menu.getApplicationMenu();
+    const target = menu ? find(menu.items) : null;
+    if (!target) throw new Error(`No menu item with id ${itemId}`);
+    target.click();
+  }, id);
+}
+
+async function runPaletteCommand(app: ElectronApplication, page: Page, query: string, title: RegExp): Promise<void> {
+  await invokeMenu(app, 'command-palette');
+  await expect(page.getByTestId('command-palette')).toBeVisible();
+  await page.getByTestId('command-input').fill(query);
+  await page.getByTestId('command-row').filter({ hasText: title }).click();
 }
 
 const rendererStatus = (page: Page) => page.getByTestId('renderer-plugin-lifecycle');
@@ -153,8 +178,7 @@ test.describe('plugin center', () => {
       await expect(page.locator('.ProseMirror')).toBeVisible();
 
       // Demote every heading through the command palette.
-      await page.keyboard.press(`${process.platform === 'darwin' ? 'Meta' : 'Control'}+KeyK`);
-      await page.getByRole('button', { name: /demote a level/i }).click();
+      await runPaletteCommand(app, page, 'demote a level', /demote a level/i);
       // The plugin's own word for what it did, in the status line.
       await expect(page.getByTestId('status-notice')).toHaveText(/Headings demoted/);
 
@@ -193,8 +217,7 @@ test.describe('plugin center', () => {
       await section.locator('button.plugin-primary').click();
       await section.locator('button.plugin-primary').click();
 
-      await page.keyboard.press(`${process.platform === 'darwin' ? 'Meta' : 'Control'}+KeyK`);
-      await page.getByRole('button', { name: /CJK spacing/i }).click();
+      await runPaletteCommand(app, page, 'CJK spacing', /CJK spacing/i);
 
       await expect(page.locator('.ProseMirror p').first())
         .toHaveText('这是中文 English 混排 text 测试。');

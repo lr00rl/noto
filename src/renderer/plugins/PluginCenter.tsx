@@ -371,7 +371,7 @@ export function PluginCenter({ api, snapshots, availability, open, evidenceContr
 
           {(pluginCommands.get(entry.id)?.length ?? 0) > 0 && (
             <p className="plugin-commands">
-              <span className="plugin-commands-label">In the palette (⌘K)</span>
+              <span className="plugin-commands-label">In the command palette</span>
               {pluginCommands.get(entry.id)?.join(' · ')}
             </p>
           )}
@@ -473,11 +473,18 @@ export function PluginCenter({ api, snapshots, availability, open, evidenceContr
   const renderGroup = (group: Entry['group'], label: string) => {
     const inGroup = entries.filter((candidate) => candidate.group === group);
     if (inGroup.length === 0) return null;
-    return (
+    const body = (
       <section className="plugin-group" key={group}>
-        <p className="pref-group">{label}</p>
+        {group === 'installed' && <p className="pref-group">{label}</p>}
         {inGroup.map(renderEntry)}
       </section>
+    );
+    if (group !== 'examples') return body;
+    return (
+      <details className="plugin-examples" data-testid="plugin-examples" key={group}>
+        <summary data-testid="plugin-examples-toggle">{label}</summary>
+        {body}
+      </details>
     );
   };
 

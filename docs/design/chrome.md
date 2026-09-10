@@ -262,8 +262,11 @@ line the window has on something already read.
 
 ## Preferences
 
-One dialog, 720×560, reached from the gear or `Cmd+,`. Sections down the left,
-content on the right: Appearance, Editor, Plugins.
+One dialog, 840×520 and capped by the window, reached from the gear or `Cmd+,`.
+The size does not follow the section: switching tabs used to grow and shrink
+the panel, which is worse than a short pane with room under the last row.
+Sections down the left, content on the right: Appearance, Editor, Markdown,
+Images, Remote, Plugins. The body scrolls; the footer stays put.
 
 No rule between rows. A line under every setting draws a table where there is
 only a list, and the last row of a section always ended up floating above the
@@ -275,8 +278,7 @@ stylesheet. Text size and line height are sliders with the value beside them in
 its own units, because a slider alone hides the number and a number field alone
 turns finding a comfortable line height into typing and re-typing. Page width
 is the same three-way control as the theme, since it is three modes rather than
-a number and the pixels each mode resolves to depend on the canvas; the hint
-under the label names the chord that walks them.
+a number and the pixels each mode resolves to depend on the canvas.
 
 Range inputs are painted rather than left alone. A bare one uses the operating
 system's accent colour, which is neither this app's accent nor anything the
