@@ -32,6 +32,12 @@ export interface WikiLinkMatch {
   readonly to: number;
   readonly target: string;
   readonly label: string;
+  /** Visible link text: the label, or the whole target when there is no pipe. */
+  readonly linkFrom: number;
+  readonly linkTo: number;
+  /** `target|` muted like the brackets when a label is present; null otherwise. */
+  readonly muteFrom: number | null;
+  readonly muteTo: number | null;
 }
 
 /** Every wiki link in a run of text, offset by where that text starts. */
@@ -41,13 +47,34 @@ export function findWikiLinks(text: string, offset: number): WikiLinkMatch[] {
   for (;;) {
     const match = WIKI_LINK.exec(text);
     if (match === null) break;
-    const target = match[1].trim();
+    const rawTarget = match[1];
+    const target = rawTarget.trim();
     if (target.length === 0) continue;
+    const from = offset + match.index;
+    const to = from + match[0].length;
+    const innerFrom = from + 2;
+    const innerTo = to - 2;
+    const rawLabel = match[2];
+    if (rawLabel === undefined) {
+      matches.push({
+        from, to, target,
+        label: target,
+        linkFrom: innerFrom,
+        linkTo: innerTo,
+        muteFrom: null,
+        muteTo: null,
+      });
+      continue;
+    }
+    const label = rawLabel.trim() || target;
+    // Mute the path and the pipe; the label is what a reader should see.
+    const muteTo = innerFrom + rawTarget.length + 1;
     matches.push({
-      from: offset + match.index,
-      to: offset + match.index + match[0].length,
-      target,
-      label: (match[2] ?? '').trim() || target,
+      from, to, target, label,
+      linkFrom: muteTo,
+      linkTo: innerTo,
+      muteFrom: innerFrom,
+      muteTo,
     });
   }
   return matches;
@@ -56,22 +83,27 @@ export function findWikiLinks(text: string, offset: number): WikiLinkMatch[] {
 /**
  * The link's decorations.
  *
- * Three ranges rather than one: the two bracket pairs are dimmed to near
- * invisibility and the middle is styled as a link. Hiding the brackets outright
- * would make the caret jump two characters at a time through text that is still
- * there, which is the thing that makes hidden syntax feel broken.
+ * Brackets (and, when present, `target|`) are dimmed rather than removed, so
+ * the caret still walks the real characters. The visible name is the label —
+ * or the bare target when nobody wrote a pipe — styled as a link.
  */
 function decorateLink(match: WikiLinkMatch): Decoration[] {
   const openTo = match.from + 2;
   const closeFrom = match.to - 2;
-  return [
+  const decorations: Decoration[] = [
     Decoration.inline(match.from, openTo, { class: 'noto-wiki-bracket' }),
-    Decoration.inline(openTo, closeFrom, {
+    Decoration.inline(closeFrom, match.to, { class: 'noto-wiki-bracket' }),
+    Decoration.inline(match.linkFrom, match.linkTo, {
       class: 'noto-wiki-link',
       'data-wiki-target': match.target,
     }),
-    Decoration.inline(closeFrom, match.to, { class: 'noto-wiki-bracket' }),
   ];
+  if (match.muteFrom !== null && match.muteTo !== null && match.muteTo > match.muteFrom) {
+    decorations.push(Decoration.inline(match.muteFrom, match.muteTo, {
+      class: 'noto-wiki-bracket',
+    }));
+  }
+  return decorations;
 }
 
 function wikiDecorations(state: EditorState): DecorationSet {

@@ -122,7 +122,7 @@ test.describe('quick open', () => {
       await page.getByTestId('save-button').click();
       await expect(page.getByTestId('file-state')).toHaveText('Saved', { timeout: 15_000 });
       const saved = await readFile(path.join(folder, 'index.md'), 'utf8');
-      expect(saved).toContain('[[deep-dive]]');
+      expect(saved).toContain('[[chapters/deep-dive|deep-dive]]');
 
       // Following it opens the note it names.
       await link.click({ modifiers: [process.platform === 'darwin' ? 'Meta' : 'Control'] });
