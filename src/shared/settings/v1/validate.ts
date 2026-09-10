@@ -103,6 +103,7 @@ export function coerceSettings(value: unknown): NotoSettingsV1 {
       ? value.markSuperscript
       : DEFAULT_SETTINGS.markSuperscript,
     markSubscript: typeof value.markSubscript === 'boolean' ? value.markSubscript : DEFAULT_SETTINGS.markSubscript,
+    sidenotes: typeof value.sidenotes === 'boolean' ? value.sidenotes : DEFAULT_SETTINGS.sidenotes,
     fontSize: numeric(value, 'fontSize'),
     lineHeight: numeric(value, 'lineHeight'),
     widthMode: isWidthMode(value.widthMode) ? value.widthMode : DEFAULT_SETTINGS.widthMode,
@@ -232,6 +233,8 @@ export function isSettingsReplyV1(value: unknown): value is SettingsReplyV1 {
     && typeof settings.codeLineNumbers === 'boolean'
     && typeof settings.codeIndentGuides === 'boolean'
     && typeof settings.codeTabMarkers === 'boolean'
+    && typeof settings.sidenotes === 'boolean'
+
     && typeof settings.autoPair === 'boolean'
     && typeof settings.focusMode === 'boolean'
     && typeof settings.typewriterMode === 'boolean'

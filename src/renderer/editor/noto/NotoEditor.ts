@@ -51,6 +51,7 @@ import { imageFromTransfer } from './image-drop';
 import { documentDomToHtml, sliceToHtml, sliceToPlainText } from './clipboard';
 import { alertPlugin } from './alert-plugin';
 import { RESCAN, typoraMarksKey, typoraMarksPlugin } from './typora-marks-plugin';
+import { SIDENOTE_RESCAN, sidenoteKey, sidenotePlugin } from './sidenote-plugin';
 import { ALL_MARK_KINDS, type TyporaMarkKinds } from './typora-marks';
 import { typewriterPlugin } from './typewriter-plugin';
 import { autoPairPlugin } from './auto-pair';
@@ -139,6 +140,7 @@ export class NotoEditor implements NotoEditorPort {
 
   /** Which of Typora's inline marks are read; a preference, read at each scan. */
   private markKinds: TyporaMarkKinds = ALL_MARK_KINDS;
+  private sidenotes = true;
   private activeBlock = -1;
   /* Bumped by every change, so a picture that arrives after the document moved
      under it is put where the caret is now rather than at a stale offset. */
@@ -269,6 +271,7 @@ export class NotoEditor implements NotoEditorPort {
       gapCursor(),
       alertPlugin(),
       typoraMarksPlugin(() => this.markKinds),
+      sidenotePlugin(() => this.sidenotes),
       typewriterPlugin(() => this.typewriter),
       autoPairPlugin(() => this.autoPair),
       columnResizing(),
@@ -755,6 +758,7 @@ export class NotoEditor implements NotoEditorPort {
     markHighlight?: boolean;
     markSuperscript?: boolean;
     markSubscript?: boolean;
+    sidenotes?: boolean;
     smartQuotes?: boolean;
     smartDashes?: boolean;
     smartEllipsis?: boolean;
@@ -777,6 +781,8 @@ export class NotoEditor implements NotoEditorPort {
       || marks.superscript !== this.markKinds.superscript
       || marks.subscript !== this.markKinds.subscript;
     this.markKinds = marks;
+    const sidenotesChanged = settings.sidenotes !== undefined && settings.sidenotes !== this.sidenotes;
+    if (settings.sidenotes !== undefined) this.sidenotes = settings.sidenotes;
     if (settings.smartQuotes !== undefined) this.substitutions.quotes = settings.smartQuotes;
     if (settings.smartDashes !== undefined) this.substitutions.dashes = settings.smartDashes;
     if (settings.smartEllipsis !== undefined) this.substitutions.ellipsis = settings.smartEllipsis;
@@ -787,6 +793,9 @@ export class NotoEditor implements NotoEditorPort {
       // marks plugin needs: read the document again. It costs the document
       // nothing and stays out of the undo history.
       view.dispatch(view.state.tr.setMeta(typoraMarksKey, RESCAN).setMeta('addToHistory', false));
+    }
+    if (sidenotesChanged) {
+      view.dispatch(view.state.tr.setMeta(sidenoteKey, SIDENOTE_RESCAN).setMeta('addToHistory', false));
     }
     if (settings.remoteImages !== undefined && settings.remoteImages !== this.imageContext.remote) {
       this.imageContext = { ...this.imageContext, remote: settings.remoteImages };

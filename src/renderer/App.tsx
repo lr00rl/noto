@@ -518,9 +518,10 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
     root.dataset.codeLineNumbers = settings.codeLineNumbers ? 'on' : 'off';
     root.dataset.codeIndentGuides = settings.codeIndentGuides ? 'on' : 'off';
     root.dataset.codeTabMarkers = settings.codeTabMarkers ? 'on' : 'off';
+    root.dataset.sidenotes = settings.sidenotes ? 'on' : 'off';
     root.dataset.focusMode = settings.focusMode ? 'on' : 'off';
   }, [settings.fontSize, settings.lineHeight, settings.widthMode, settings.proseFace, settings.codeLineNumbers,
-    settings.codeIndentGuides, settings.codeTabMarkers, settings.focusMode]);
+    settings.codeIndentGuides, settings.codeTabMarkers, settings.sidenotes, settings.focusMode]);
 
   /**
    * The user's own stylesheet, layered over the theme.
@@ -1610,6 +1611,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
       case 'block-code': case 'block-math': case 'block-quote':
       case 'block-ordered-list': case 'block-bullet-list': case 'block-task-list':
       case 'block-rule': case 'mark-underline': case 'mark-highlight': case 'mark-math':
+      case 'insert-sidenote':
       case 'select-scope': case 'insert-comment': case 'indent-more': case 'indent-less':
       case 'table-row-above': case 'table-row-below':
       case 'table-column-before': case 'table-column-after':
@@ -2102,6 +2104,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
                 markHighlight={settings.markHighlight}
                 markSuperscript={settings.markSuperscript}
                 markSubscript={settings.markSubscript}
+                sidenotes={settings.sidenotes}
                 onActiveBlockChanged={setActiveBlock}
                 onDirtyChange={(dirty) => onDocumentDirtyChange(doc.document.documentId, dirty)}
                 onDocumentChanged={() => {
