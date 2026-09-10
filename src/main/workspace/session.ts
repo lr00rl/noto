@@ -323,6 +323,9 @@ export class WorkspaceSession {
     this.publish(document.opened);
     this.publishTabs();
     this.applyWindowTitle(resolved);
+    // A successful bring-to-front is still a recent visit: File > Recent and
+    // the empty-state list should agree with the strip along the bottom.
+    void this.recent.remember(resolved).catch(() => {});
     return document.opened;
   }
 

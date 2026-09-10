@@ -1398,9 +1398,12 @@ with its language, its copy button, its indent guides and its tab markers,
 `todo-manager` is the check date and the sort, `file-tags` is the frontmatter
 chips and Browse Tags, `timeline` is the chronology fence, `code-viewer` is
 the read-only source pane, and `trail` is back and forward in the title bar
-and the Go menu, three notes each way. Not done: `drawio`; `recent-files`
-exists as a menu and a status strip rather than as the plugin's behaviour,
-and `remote-control` is infrastructure rather than a feature.
+and the Go menu, three notes each way. `recent-files` is folded into Quick
+Open's empty-query frecency list and the File menu / empty-state recent list,
+with confirmed-open recording (success only, once per transition) matching the
+plugin's `ConfirmedOpenRecorder` spirit rather than a separate fuzzy-recent
+palette. Not done: `drawio`; and `remote-control` is infrastructure rather
+than a feature.
 
 ## Where Noto is ahead
 
