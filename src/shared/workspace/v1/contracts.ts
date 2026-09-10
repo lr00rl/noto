@@ -627,11 +627,13 @@ export interface WorkspaceLinkV1 {
 }
 
 /**
- * What the vault's note-assistant graph knows about one note.
+ * What the vault knows about one note's neighbours.
  *
- * `available` is false when the vault has no graph; `known` is false when
- * it has one that has not met this note. The lists are empty in both cases,
- * and the renderer says which of the two it is.
+ * `available` is false when no folder is open. `known` is false when the
+ * current path is not a note in that folder. Explicit lists always come from
+ * the notes themselves. `related` is filled only when note-assistant's graph
+ * is present; an empty related list is not a missing graph, it is no
+ * suggestions.
  */
 export interface WorkspaceLinksReplyV1 {
   readonly version: typeof NOTO_WORKSPACE_VERSION;

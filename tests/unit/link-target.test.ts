@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EditorState, TextSelection } from 'prosemirror-state';
+import { AllSelection, EditorState, TextSelection } from 'prosemirror-state';
 import { splitBlocks } from '../../src/shared/markdown/v3/blocks';
 import { docFromSpans } from '../../src/shared/markdown/v3/pm/from-mdast';
 import { linkTarget } from '../../src/renderer/editor/noto/link-plugin';
@@ -56,6 +56,16 @@ describe('what a link command acts on', () => {
     const fence = '```js\nconst a = 1;\n```';
     const start = at(fence, 'const');
     expect(linkTarget(stateFor(fence, start, start + 5))).toBeNull();
+  });
+
+  it('is the paragraph when the whole document is selected', () => {
+    const plain = 'Read the paper today.';
+    const state = EditorState.create({ doc: docFromSpans(splitBlocks(plain).spans) });
+    const selected = state.apply(state.tr.setSelection(new AllSelection(state.doc)));
+    const target = linkTarget(selected);
+    expect(target).not.toBeNull();
+    expect(target!.existing).toBe(false);
+    expect(selected.doc.textBetween(target!.from, target!.to)).toBe(plain);
   });
 });
 

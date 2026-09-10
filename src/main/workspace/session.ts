@@ -12,6 +12,7 @@
  */
 
 import { GraphCache, linksFor } from './note-graph';
+import { buildLinkIndex, neighbourhood, type ExplicitLinkIndex } from './link-index';
 import type { SearchFlags } from '../../shared/search/pattern';
 import path from 'node:path';
 import { access, cp, mkdir, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
@@ -107,6 +108,7 @@ export class WorkspaceSession {
    */
   private folderChosen = false;
   private indexCache: { root: string; reply: WorkspaceIndexReplyV1 } | null = null;
+  private linkIndexCache: { root: string; index: ExplicitLinkIndex } | null = null;
 
   constructor(
     private readonly createStore: () => FileTruthStoreV1,
@@ -380,6 +382,7 @@ export class WorkspaceSession {
     this.folderChosen = chosen;
     // A new folder invalidates the old index rather than serving it stale.
     this.indexCache = null;
+    this.linkIndexCache = null;
     await this.recentFolders?.remember(root);
     this.logger.log('workspace_folder_opened', {});
     const event = this.folderEvent();
@@ -1014,17 +1017,20 @@ export class WorkspaceSession {
    * renderer asks for it whenever quick open is first used. It is dropped when
    * the folder changes rather than kept warm for a folder nobody is in.
    */
-  /**
-   * What the vault's note-assistant graph knows about one note.
-   *
-   * The note has to be inside the open folder, since the graph's paths are
-   * relative to it; a note from elsewhere is simply not known.
-   */
   /** Tell the renderer its listing is stale, without saying what changed. */
   announceTreeChanged(): void {
+    this.indexCache = null;
+    this.linkIndexCache = null;
     this.send(WORKSPACE_CHANNELS.treeChanged, { version: NOTO_WORKSPACE_VERSION });
   }
 
+  /**
+   * What this note links to, and what links to it.
+   *
+   * Explicit lists come from the notes themselves (wiki and markdown links).
+   * Related notes come only from note-assistant's graph, when that file is
+   * present: they are a plugin's ranking, not a built-in guess.
+   */
   async noteLinks(target: string): Promise<WorkspaceLinksReplyV1> {
     const empty = (available: boolean, known: boolean, generatedAt: string | null = null): WorkspaceLinksReplyV1 => ({
       version: NOTO_WORKSPACE_VERSION, available, known, generatedAt, backlinks: [], links: [], related: [],
@@ -1034,46 +1040,62 @@ export class WorkspaceSession {
       this.logger.log('note_links', { outcome: 'no-folder' });
       return empty(false, false);
     }
-    const graph = await this.graphCache.graphFor(root);
-    if (!graph) {
-      this.logger.log('note_links', { outcome: 'no-graph' });
-      return empty(false, false);
-    }
     let realRoot: string;
     let real: string;
     try {
       realRoot = await realpath(root);
       real = await realpath(path.resolve(target));
     } catch {
-      return empty(true, false, graph.generatedAt);
+      return empty(true, false);
     }
     if (!isInside(realRoot, real)) {
       this.logger.log('note_links', { outcome: 'outside' });
-      return empty(true, false, graph.generatedAt);
+      return empty(true, false);
     }
     const relative = path.relative(realRoot, real).split(path.sep).join('/');
-    const found = linksFor(graph, relative);
+    const [explicit, graph] = await Promise.all([this.explicitLinkIndex(), this.graphCache.graphFor(root)]);
+    const found = explicit
+      ? neighbourhood(explicit, relative, (rel) => path.join(root, ...rel.split('/')))
+      : null;
     if (!found) {
       this.logger.log('note_links', { outcome: 'unknown' });
-      return empty(true, false, graph.generatedAt);
+      return empty(true, false, graph?.generatedAt ?? null);
     }
-    this.logger.log('note_links', {
-      outcome: 'found', backlinks: found.backlinks.length, links: found.links.length, related: found.related.length,
-    });
+    const linked = new Set([
+      relative,
+      ...found.outgoing.map((item) => item.relativePath),
+      ...found.backlinks.map((item) => item.relativePath),
+    ]);
+    const graphLinks = graph ? linksFor(graph, relative) : null;
     const absolute = (link: { relativePath: string; title: string }) => ({
       path: path.join(root, ...link.relativePath.split('/')),
       relativePath: link.relativePath,
       title: link.title,
     });
+    const related = (graphLinks?.related ?? [])
+      .filter((item) => !linked.has(item.relativePath))
+      .map(absolute);
+    this.logger.log('note_links', {
+      outcome: 'found', backlinks: found.backlinks.length, links: found.outgoing.length, related: related.length,
+    });
     return {
       version: NOTO_WORKSPACE_VERSION,
       available: true,
       known: true,
-      generatedAt: graph.generatedAt,
-      backlinks: found.backlinks.map(absolute),
-      links: found.links.map(absolute),
-      related: found.related.map(absolute),
+      generatedAt: graph?.generatedAt ?? null,
+      backlinks: found.backlinks,
+      links: found.outgoing,
+      related,
     };
+  }
+
+  private async explicitLinkIndex(): Promise<ExplicitLinkIndex | null> {
+    if (!this.folderRoot) return null;
+    if (this.linkIndexCache?.root === this.folderRoot) return this.linkIndexCache.index;
+    const files = await this.fileIndex();
+    const index = await buildLinkIndex(files.entries);
+    this.linkIndexCache = { root: this.folderRoot, index };
+    return index;
   }
 
   async fileIndex(): Promise<WorkspaceIndexReplyV1> {

@@ -1,12 +1,11 @@
 /**
- * The vault's graph, for the note in front: what links here, what it
- * links to, and what it is probably about the same thing as.
+ * Neighbours of the note in front: what links here, what it links to, and
+ * (when note-assistant has ranked them) what is probably about the same thing.
  *
- * The author's note-assistant builds this graph and their Typora plugin
- * shows it in a panel. Here it is a view of the rail, next to the files
- * and the outline, so a note's neighbours are a click away while it is
- * being read. The lists come from main, which reads the graph; nothing is
- * computed here, so this cannot disagree with the plugin.
+ * Explicit lists are computed from the notes themselves. Related notes are
+ * the plugin's ranking and only appear when `.note-assistant/graph.json` is
+ * there. Mixing the two into one "graph" was why this rail sat empty in a
+ * vault full of wiki links.
  */
 
 import { useEffect, useState } from 'react';
@@ -63,28 +62,29 @@ export function RailLinks({ currentPath, onLinks, onOpen }: RailLinksProps) {
   }, [currentPath, onLinks]);
 
   if (currentPath === null) return <p className="rail-empty">Open a note to see what it is linked to.</p>;
-  // Nothing known yet is the reading state, whether or not the effect that
-  // asks has run: the first frame after a note opens comes before it has,
-  // and saying "no graph" for that frame was a lie the eye caught.
-  if (reply === null && error === null) return <p className="rail-empty">Reading the graph…</p>;
+  if (reply === null && error === null) return <p className="rail-empty">Reading links…</p>;
   void loading;
   if (error !== null) {
-    return <p className="rail-empty" data-testid="links-status">The graph could not be read: {error}</p>;
+    return <p className="rail-empty" data-testid="links-status">The links could not be read: {error}</p>;
   }
   if (reply === null || !reply.available) {
     return (
       <p className="rail-empty" data-testid="links-status">
-        This vault has no note-assistant graph. It is written to <code>.note-assistant/graph.json</code> by the vault's own tools.
+        Open a folder to see what notes link to each other.
       </p>
     );
   }
   if (!reply.known) {
-    return <p className="rail-empty" data-testid="links-status">The graph has not met this note yet.</p>;
+    return <p className="rail-empty" data-testid="links-status">This note is not in the open folder.</p>;
   }
   const nothing = reply.backlinks.length + reply.links.length + reply.related.length === 0;
   return (
     <div className="rail-links" data-testid="links-panel">
-      {nothing && <p className="rail-empty" data-testid="links-status">Nothing links here yet, and nothing is near.</p>}
+      {nothing && (
+        <p className="rail-empty" data-testid="links-status">
+          Nothing links here yet.
+        </p>
+      )}
       <Section title="Linked from" items={reply.backlinks} onOpen={onOpen} testId="links-backlinks" />
       <Section title="Links to" items={reply.links} onOpen={onOpen} testId="links-out" />
       <Section title="Related" items={reply.related} onOpen={onOpen} testId="links-related" />
