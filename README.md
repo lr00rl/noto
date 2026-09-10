@@ -45,7 +45,7 @@ numbers are below.
 ## Download
 
 Builds for macOS, Windows and Linux are on the
-[releases page](https://github.com/lr00rl/Noto/releases/latest). Take the
+[releases page](https://github.com/roobli/Noto/releases/latest). Take the
 installer for your system where there is one, or the archive, which needs no
 installing: unpack it and run what is inside.
 
@@ -85,9 +85,10 @@ Open a file with `Cmd+O`, or open a folder with `Cmd+Alt+O` to get the
 workspace tree. Documents open in tabs. The rail on the left holds two views,
 the file tree and the document outline; the one control at the top left opens
 and closes it, and `Cmd+Shift+L` and `Cmd+Shift+O` open it directly on the view
-they name. `Cmd+F` finds, `Cmd+Alt+F` finds and replaces, `Cmd+K` opens the
-command palette, and `Cmd+,` opens preferences, which is also where plugins are
-turned on. On Windows and Linux, read Control for Command.
+they name. `Cmd+F` finds, `Cmd+Alt+F` finds and replaces, `Cmd+K` inserts or
+edits a link, `Cmd+Shift+P` opens the command palette, and `Cmd+,` opens
+preferences, which is also where plugins are turned on. On Windows and Linux,
+read Control for Command.
 
 The title bar carries the filename and nothing else that is not an action you
 can take right now: Save appears when there is something to save and is absent
@@ -103,21 +104,27 @@ any absolute path and wins over the built-in theme, so `:root { --accent: … }`
 is enough to retheme the app without editing it.
 
 `Cmd+P` is quick open: type part of a note's name or its path and it ranks the
-whole folder by how well it matches and by how often and how recently you open
-it, so an empty box already shows the few notes you probably want. `Enter`
-opens the note; `Alt+Enter` writes a `[[wiki link]]` to it at the caret instead.
-Wiki links render inline wherever they appear, and `Cmd+click` follows one.
+whole folder by how well it matches (fzf-style subsequences, spaces meaning
+AND) and by how often and how recently you open it, so an empty box already
+shows the few notes you probably want. `Enter` opens the note; `Alt+Enter`
+writes a `[[wiki link]]` to it at the caret instead. Wiki links render inline
+wherever they appear, and `Cmd+click` follows one.
 
 The links are decorations rather than a node type, so they cannot reach the
 saved bytes: `[[a note]]` is ordinary text in the file, exactly as you typed it.
 
-`Cmd+Shift+F` searches inside the notes rather than across their names, and
-`Tab` switches between the two without leaving the box. A content result shows
+`Tab` in that box switches between names, folders, and the text inside notes.
+A content search matches every word (or `re:` for a regular expression), shows
 the lines it was found on, and opening one lands on the match with the find bar
 already carrying the query. The scan reads the folder on demand rather than
-keeping an index: on a vault of 7,066 notes and 82.5 MB it takes about 1.3
-seconds cold and 274 ms once the operating system has the files cached, which is
-what the adaptive debounce is for.
+keeping an inverted index, and it does not shell out to ripgrep: the grammar
+follows rg, the binary is not a requirement. On a vault of 7,066 notes and
+82.5 MB it takes about 1.3 seconds cold.
+
+`Cmd+Shift+F` is the other content search, the one that stays in the rail so
+you can walk through hits without closing the list. A full scan of 7,066 notes
+is about 274 ms once the operating system has the files cached, which is what
+the adaptive debounce is for.
 
 The rail's footer names the open folder and holds what acts on it: open
 another, reveal it in the file manager, refresh, and the folders you opened
@@ -201,6 +208,14 @@ says plainly where the model stops today: plugins ship inside the
 application, and the sandboxed runtime for third-party code is built but not
 yet opened. Theming, which needs no plugin at all, is one CSS file named in
 Preferences; [docs/theming.md](docs/theming.md) lists what it can reach.
+
+## Canvases
+
+A canvas is a React document of tables and findings, not a Markdown note. The
+primitives live in [`@roobli/canvas`](https://github.com/roobli/canvas) (MIT),
+so a host that is not Noto can import them. Noto does not compile a vault
+`.canvas.tsx` file yet; that is code execution and belongs in a sandbox,
+described in [docs/canvas.md](docs/canvas.md).
 
 ## Building and verifying
 
