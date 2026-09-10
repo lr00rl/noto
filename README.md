@@ -123,9 +123,10 @@ The rail's footer names the open folder and holds what acts on it: open
 another, reveal it in the file manager, refresh, and the folders you opened
 before. `Cmd+Shift+R` reveals the current note instead.
 
-`Cmd+/` toggles source mode for the block the caret is in, which is the escape
-hatch when you want to see or hand-edit the Markdown behind one paragraph, one
-table or one code fence without leaving the rest of the document rendered.
+`Cmd+/` opens Source Code Mode: the whole note as the Markdown it is saved as,
+the way Typora's Command-slash does. `Cmd+Alt+/` still toggles source for the
+single block under the caret, which is the escape hatch when you want to fix
+one paragraph, one table or one fence without leaving the rest rendered.
 
 Markdown input rules work as you type: `#` for a heading, `-` for a list,
 `` ``` `` for a code fence. The syntax markers for the block you are editing

@@ -8,6 +8,7 @@
  */
 
 import { fromLf } from '../shared/markdown/v3/line-endings';
+import { sourceHasFinalNewline, sourceModeText } from './source-mode-text';
 import { PLAIN_FLAGS, type SearchFlags } from '../shared/search/pattern';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type {
@@ -742,7 +743,12 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
       }
     });
     const unsubscribeCode = window.notoWorkspace.onCodeViewChanged((event) => {
-      if (active) setCodeView(event.codeView);
+      if (active) {
+        setCodeView(event.codeView);
+        // Source Code Mode is for a markdown note; a read-only code pane
+        // replaces it, so the mode does not stay armed underneath.
+        if (event.codeView) setSourceMode(false);
+      }
     });
     /*
      * The file behind a document moved under it.
@@ -1143,6 +1149,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
       }
       if ('codeView' in result.value) {
         setCodeView(result.value.codeView);
+        setSourceMode(false);
         return;
       }
       // Counted only on a successful open, so a path that does not resolve does
@@ -2130,7 +2137,10 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
         )}
       />
 
-      <div className={`workspace-layout ${rail.open ? 'has-rail' : ''}`}>
+      <div
+        className={`workspace-layout ${rail.open ? 'has-rail' : ''}`}
+        data-source-mode={sourceMode ? 'on' : undefined}
+      >
         {shortcuts && <Shortcuts mac={platform === 'darwin'} onClose={() => setShortcuts(false)} />}
         {tableDialog && (
           <TableDialog
@@ -2183,6 +2193,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
                 <SourceModeView
                   key={`${doc.document.documentId}:${doc.document.revisionId}:${editorsReady}`}
                   editor={editorsRef.current.get(doc.document.documentId)!}
+                  fileText={doc.document.text}
                   startBlock={activeBlock}
                   registerFlush={(flush) => { sourceFlushRef.current = flush; }}
                 />
@@ -2468,17 +2479,28 @@ export function BootstrapFailure({ message }: { message: string }) {
 }
 
 /** The source view over one editor: reads its text once, writes back block-wise. */
-function SourceModeView({ editor, startBlock, registerFlush }: {
+function SourceModeView({ editor, fileText, startBlock, registerFlush }: {
   editor: NotoEditor;
+  fileText: string;
   startBlock: number;
   registerFlush: (flush: (() => void) | null) => void;
 }) {
-  const initial = useMemo(() => editor.getMarkdown(), [editor]);
+  const initial = useMemo(() => sourceModeText({
+    dirty: editor.isDirty,
+    fileText,
+    reconstructed: editor.getMarkdown(),
+    hasFinalNewline: editor.envelope.hasFinalNewline,
+  }), [editor, fileText]);
   return (
     <SourceMode
       initialText={initial}
       startBlock={Math.max(0, startBlock)}
-      apply={(markdown) => editor.replaceMarkdown(markdown)}
+      apply={(markdown) => {
+        // The trailing newline is an envelope fact, not a block. Keep it in
+        // sync so a save from source writes the same last byte the buffer shows.
+        editor.setEnvelope({ hasFinalNewline: sourceHasFinalNewline(markdown) });
+        return editor.replaceMarkdown(markdown);
+      }}
       onLeave={(block) => editor.focusBlock(block)}
       registerFlush={registerFlush}
     />

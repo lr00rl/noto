@@ -1330,6 +1330,55 @@ Not in this slice: rendering HTML/SVG as a framed page, language overrides
 remembered per extension, or indexing code files into quick open. The hard
 requirement that the original file is never rewritten is what this one does.
 
+## 69. The whole note could not be edited as text. Closed.
+
+Typora's Command-slash shows the note as the markdown it is saved as. Noto had
+only the per-block toggle on that chord, which is useful and is not that: fixing
+a table's pipes, pasting a slab of raw text, or reading what the file really
+holds wants the whole file in one place.
+
+`Cmd+/` now opens Source Code Mode. The rendered page stays mounted and hidden
+underneath, so its history and scroll survive, and a plain column of markdown
+takes its place — a textarea over a coloured copy drawn with the same Prism
+markdown grammar the fences already use. The caret arrives at the block the
+reader was in and returns to the block they were reading when they leave.
+`Cmd+Alt+/` keeps the per-block toggle. The chrome quiets (status and outline
+current mark step back) without hiding the rail, which is Typora's choice too.
+
+What is typed settles into the document a third of a second after each pause,
+through the same block-wise `replaceMarkdown` a transform plugin uses, so the
+outline, the word count, the dirty mark and autosave keep working while the
+text is open. A save asked for before the text has settled flushes first. A
+clean note opens on the accepted file text (LF-normalised), so blank lines
+between blocks are what the file holds rather than a re-join; a dirty note
+reconstructs from the editor. The trailing newline tracks the buffer into the
+envelope so the last byte matches what is on screen.
+
+### Tradeoffs, honestly
+
+- **Untouched blocks stay byte-exact.** `replaceMarkdown` keeps prefix and
+  suffix blocks that still match, so their provenance survives and the
+  ordinary blocks save still copies their original bytes. That is the point of
+  not swapping the whole document for a fresh parse on every keystroke.
+- **Gap-only edits do not stick.** Changing only the blank lines between two
+  blocks, without changing either block's markdown, is invisible to the block
+  model: `replaceMarkdown` sees no block difference and returns false. A
+  `mode: 'source'` transaction exists on the serialize contract for whole-file
+  replacement, but Source Code Mode does not take it yet — taking it would
+  rewrite every block's bytes on save, which is the opposite of the property
+  above. Until that path is wired as an explicit escape, edit the neighbouring
+  block or use a tool outside Noto for gap-only surgery.
+- **The buffer is LF.** CRLF files are shown and edited as LF; the envelope
+  restores the file's endings on save, the same way the rest of the editor
+  does. Mixed endings stay mixed for untouched blocks and follow the envelope
+  target when the reader has asked to convert.
+- **A re-join is not the file.** Once the note is dirty, the buffer is
+  `getMarkdown()` plus the final-newline bit, which joins blocks with `\n\n`.
+  Odd gaps the file had are no longer in the buffer, though they still ride
+  along on save for every pair of still-pristine neighbours.
+- **Opening a non-Markdown code view leaves the mode.** The read-only code
+  pane and Source Code Mode are different surfaces; stacking them was noise.
+
 # Where things stand
 
 ## Plugins: thirteen of sixteen, in some form

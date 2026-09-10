@@ -48,7 +48,7 @@ test('Source Code Mode shows the note as text, takes edits, and hands the caret 
     const input = page.getByTestId('source-input');
     await expect(input).toBeVisible();
     await expect(input).toBeFocused();
-    await expect(input).toHaveValue(NOTE.trimEnd());
+    await expect(input).toHaveValue(NOTE);
     await expect(rendered).toBeHidden();
     // The text keeps the column the document had, whatever it was set to.
     const columnOf = (selector: string) => page.locator(selector).evaluate(
@@ -113,7 +113,7 @@ test('a save from inside Source Code Mode writes what is on screen', async () =>
     await expect.poll(() => readFile(file, 'utf8')).toBe(NOTE.replace('Title', 'Heading'));
     // Still in the text, still editable.
     await expect(input).toBeVisible();
-    await expect(input).toHaveValue(NOTE.replace('Title', 'Heading').trimEnd());
+    await expect(input).toHaveValue(NOTE.replace('Title', 'Heading'));
   } finally {
     await app.close();
   }
