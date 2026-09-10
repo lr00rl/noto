@@ -49,6 +49,25 @@ const digitsOf = (page: Page, index: number) => page.evaluate((at) => {
   return pre?.style.getPropertyValue('--fence-digits') ?? '';
 }, index);
 
+/** Press a gutter number by line index (0-based), using the same metrics as the node view. */
+async function pressGutterLine(page: Page, fenceIndex: number, lineIndex: number): Promise<void> {
+  await page.evaluate(({ fenceIndex: at, lineIndex: line }) => {
+    const gutter = document.querySelectorAll('.ProseMirror pre .noto-fence-gutter')[at] as HTMLElement | undefined;
+    if (!gutter) throw new Error(`no gutter at fence ${at}`);
+    const style = getComputedStyle(gutter);
+    const lineHeight = Number.parseFloat(style.lineHeight) || 20;
+    const paddingTop = Number.parseFloat(style.paddingTop) || 0;
+    const rect = gutter.getBoundingClientRect();
+    gutter.dispatchEvent(new MouseEvent('mousedown', {
+      bubbles: true,
+      cancelable: true,
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top + paddingTop + (line + 0.5) * lineHeight,
+      button: 0,
+    }));
+  }, { fenceIndex, lineIndex });
+}
+
 test.describe('code fences', () => {
   test('number their lines, as wide as each block needs, and follow typing', async () => {
     const { app, page } = await launch('gutter');
@@ -78,18 +97,14 @@ test.describe('code fences', () => {
     const { app, page } = await launch('caret');
     try {
       const fence = page.locator('.ProseMirror pre').nth(1);
-      const gutter = fence.locator('.noto-fence-gutter');
-      const box = (await gutter.boundingBox())!;
-      // Three lines with the column's padding above and below: the middle of
-      // the box is on the second number, and a quarter of the way down is on
-      // the first.
-      await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.5);
+      // Second number → caret on "text"; typing there must not touch the lines around it.
+      await pressGutterLine(page, 1, 1);
       await page.keyboard.type('> ');
       await expect(fence.locator('code')).toHaveText('plain\n> text\nhere');
 
       // The gutter is not a place the caret can be: up from the first line is
       // the paragraph above, as it would be without a gutter at all.
-      await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.26);
+      await pressGutterLine(page, 1, 0);
       await page.keyboard.press('ArrowUp');
       await page.keyboard.type('!');
       // Wherever along the word the caret landed, it landed in the paragraph.
