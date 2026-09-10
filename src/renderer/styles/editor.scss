@@ -458,3 +458,15 @@
 :root[data-focus-mode='on'] .ProseMirror > :is(blockquote, .noto-alert):not(.noto-active-block) {
   border-left-color: var(--hairline);
 }
+
+/* Source Code Mode: quiet chrome. The rail and outline still work — the
+   document underneath keeps receiving the settled text — but the status
+   strip and outline step back so the column of markdown is the only loud
+   thing on the page. Typora keeps its sidebars in source mode; so does this. */
+.workspace-layout[data-source-mode='on'] .operational-status {
+  opacity: 0.72;
+}
+.workspace-layout[data-source-mode='on'] .outline-entry.is-current {
+  background: transparent;
+  color: var(--muted);
+}
