@@ -17,6 +17,10 @@ export const RENDERER_ORIGIN = 'noto://bundle';
    which is what the browser would do on its own and leaves nothing for a
    network in between to alter. `connect-src` stays `'none'`, so a note can
    show a picture and still cannot fetch anything. */
+/* worker-src is deliberate and narrow: the main editor parses large opens in a
+   classic module Worker bundled with the page. default-src is 'none', so without
+   this the worker would be blocked. Diagram frames and the plugin sandbox keep
+   workers refused — only this page policy allows them, and only from 'self'. */
 const productionCsp = [
   "default-src 'none'",
   "script-src 'self'",
@@ -25,6 +29,7 @@ const productionCsp = [
   "font-src 'self'",
   "frame-src 'self'",
   "connect-src 'none'",
+  "worker-src 'self'",
   "object-src 'none'",
   "base-uri 'none'",
   "frame-ancestors 'none'",
@@ -44,6 +49,7 @@ const diagramCsp = [
   "img-src data:",
   "font-src 'self' noto://bundle",
   "connect-src 'none'",
+  "worker-src 'none'",
   "object-src 'none'",
   "base-uri 'none'",
   "frame-ancestors 'self' noto://bundle",

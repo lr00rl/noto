@@ -70,6 +70,12 @@ describe('packaged renderer boundary configuration', () => {
     ]);
     expect(protocolSource).toContain("default-src 'none'");
     expect(protocolSource).toContain("connect-src 'none'");
+    // The main editor may start a module Worker for open-path parsing; the
+    // diagram frame may not. Both are explicit so default-src 'none' is not the
+    // only thing standing between a frame and a worker.
+    expect(protocolSource).toContain("worker-src 'self'");
+    expect(protocolSource).toContain("worker-src 'none'");
+    expect(shellSource).toContain("worker-src 'self'");
     // Pictures may come from the bundle, the asset origin main guards, and the
     // web; nothing else may, and nothing at all may be fetched. The policy is
     // stated twice, as a header and as a meta tag, and the browser applies the

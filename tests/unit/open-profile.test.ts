@@ -13,6 +13,11 @@ import { parseDocument } from '../../src/shared/markdown/v3/document';
  * into block spans, producing mdast, and building ProseMirror nodes. Optimising
  * the wrong one is the usual way this goes wrong, so this measures them apart.
  *
+ * In the app the renderer `splitBlocks` phase now runs inside a module Worker
+ * so it no longer freezes the UI thread; this profile still times the same
+ * work on the test thread, because the cost of the parse itself is what we
+ * need when comparing sizes, not which thread paid it.
+ *
  * Skipped by default because it is a measurement, not an assertion, and it
  * needs the generated corpus. Run it with:
  *
@@ -39,6 +44,8 @@ it.skipIf(!enabled)('profiles the phases of opening a document', { timeout: 300_
     // renderer starts its own copy of the same work.
     time('main: parseDocument', () => parseDocument(bytes));
 
+    // Same work the open-path Worker runs; timed here on this thread so the
+    // number stays comparable across machines without needing Electron.
     const spans = time('renderer: splitBlocks', () => splitBlocks(bytes.toString('utf8')).spans);
     time('renderer: docFromSpans', () => docFromSpans(spans));
   }

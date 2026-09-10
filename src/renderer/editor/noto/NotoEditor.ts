@@ -30,7 +30,8 @@ import type { Node as ProseNode } from 'prosemirror-model';
 import { notoSchema } from '../../../shared/markdown/v3/pm/schema';
 import { blockFromSpan, docFromSpans } from '../../../shared/markdown/v3/pm/from-mdast';
 import { blockToMarkdown } from '../../../shared/markdown/v3/pm/to-mdast';
-import { parseSingleBlock, splitBlocks } from '../../../shared/markdown/v3/blocks';
+import { parseSingleBlock, splitBlocks, type BlockSpan } from '../../../shared/markdown/v3/blocks';
+import { parseDocumentSpans } from './parse-document';
 import { toLf } from '../../../shared/markdown/v3/line-endings';
 import type {
   NotoDocumentWire,
@@ -162,7 +163,17 @@ export class NotoEditor implements NotoEditorPort {
   /** What each accepted block looked like, keyed by block id. */
   private pristine = new Map<string, PristineBlock>();
 
-  constructor(host: HTMLElement, document: NotoDocumentWire, options: NotoEditorOptions) {
+  /**
+   * @param spans Pre-parsed block spans from `parseDocumentSpans`. Open and
+   *   reload produce these off the UI thread; omitting them falls back to a
+   *   synchronous split, which paste and small fragment paths still use.
+   */
+  constructor(
+    host: HTMLElement,
+    document: NotoDocumentWire,
+    options: NotoEditorOptions,
+    spans?: readonly BlockSpan[],
+  ) {
     this.document = document;
     this.options = options;
     this.host = host;
@@ -173,7 +184,7 @@ export class NotoEditor implements NotoEditorPort {
     };
     this.imageContext = options.images ?? { documentDir: null, remote: true };
 
-    const doc = this.buildDoc(document);
+    const doc = this.buildDoc(document, spans);
     this.baselineDoc = doc;
 
     this.view = new EditorView(host, {
@@ -278,17 +289,19 @@ export class NotoEditor implements NotoEditorPort {
   /**
    * Build the ProseMirror document and record what each block started as.
    *
-   * The block markdown is recovered by re-splitting the text rather than being
+   * The block markdown is recovered by splitting the text rather than being
    * sent over IPC, which keeps one copy of the file on the wire instead of two.
+   * Full-document opens pass spans already produced off the UI thread; a missing
+   * list still splits here so small call sites stay synchronous.
    */
-  private buildDoc(document: NotoDocumentWire): ProseNode {
-    const spans = splitBlocks(document.text).spans;
-    const doc = docFromSpans(spans);
+  private buildDoc(document: NotoDocumentWire, spans?: readonly BlockSpan[]): ProseNode {
+    const resolved = spans ?? splitBlocks(document.text).spans;
+    const doc = docFromSpans(resolved);
 
     this.pristine = new Map();
     doc.forEach((node, _offset, index) => {
       const origin = document.origins[index];
-      const span = spans[index];
+      const span = resolved[index];
       if (origin && span) this.pristine.set(origin.blockId, { node, markdown: toLf(span.markdown) });
     });
 
@@ -1022,12 +1035,20 @@ export class NotoEditor implements NotoEditorPort {
     }
   }
 
-  /** Replace the whole document, for example after an external file change. */
-  reload(document: NotoDocumentWire): void {
+  /**
+   * Replace the whole document, for example after an external file change.
+   *
+   * Parses off the UI thread the same way open does, then swaps the editor
+   * state in one step once the spans are ready.
+   */
+  async reload(document: NotoDocumentWire): Promise<void> {
     const view = this.view;
     if (!view) return;
+    const spans = await parseDocumentSpans(document.text);
+    // A newer reload or a teardown may have landed while the worker ran.
+    if (this.view !== view) return;
     this.document = document;
-    const doc = this.buildDoc(document);
+    const doc = this.buildDoc(document, spans);
     this.baselineDoc = doc;
     view.updateState(EditorState.create({ doc, plugins: this.plugins(document) }));
     if (this.dirty) {

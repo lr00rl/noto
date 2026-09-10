@@ -10,6 +10,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import { documentDirOf } from './image-source';
 import type { NotoDocumentWire, NotoTransaction } from '../../../shared/markdown/v3/contracts';
 import { NotoEditor, type InsertedImage } from './NotoEditor';
+import { parseDocumentSpans } from './parse-document';
 import type { DocumentCount } from './word-count';
 
 export interface NotoCanvasProps {
@@ -82,38 +83,67 @@ export function NotoCanvas({
     const host = hostRef.current;
     if (!host) return;
 
-    let editor: NotoEditor;
-    try {
-      editor = new NotoEditor(host, document, {
-        mac,
-        smartQuotes,
-        smartDashes,
-        smartEllipsis,
-        spellCheck,
-        images: { documentDir: documentDirOf(documentPath), remote: remoteImages ?? true },
-        onActiveBlockChanged,
-        onDirtyChange,
-        onDocumentChanged,
-        onFollowWikiLink,
-        onWikiTrigger,
-        onFollowLink,
-        onDropNote,
-        onCountChanged,
-        onError,
-        onWriteImage,
-        onWidthStep,
-      });
-    } catch (error) {
-      onError(error instanceof Error ? error.message : 'The editor failed to start.');
-      return;
-    }
+    let cancelled = false;
+    let editor: NotoEditor | null = null;
 
-    editorRef.current = editor;
-    onReady(editor);
+    void (async () => {
+      // Full-document micromark runs in a worker so opening a large note does
+      // not freeze the window. docFromSpans stays on this thread and is cheap.
+      let spans;
+      try {
+        spans = await parseDocumentSpans(document.text);
+      } catch (error) {
+        if (!cancelled) {
+          onError(error instanceof Error ? error.message : 'The editor failed to start.');
+        }
+        return;
+      }
+      if (cancelled) return;
+
+      try {
+        editor = new NotoEditor(host, document, {
+          mac,
+          smartQuotes,
+          smartDashes,
+          smartEllipsis,
+          spellCheck,
+          images: { documentDir: documentDirOf(documentPath), remote: remoteImages ?? true },
+          onActiveBlockChanged,
+          onDirtyChange,
+          onDocumentChanged,
+          onFollowWikiLink,
+          onWikiTrigger,
+          onFollowLink,
+          onDropNote,
+          onCountChanged,
+          onError,
+          onWriteImage,
+          onWidthStep,
+        }, spans);
+      } catch (error) {
+        if (!cancelled) {
+          onError(error instanceof Error ? error.message : 'The editor failed to start.');
+        }
+        return;
+      }
+
+      if (cancelled) {
+        editor.destroy();
+        return;
+      }
+
+      editorRef.current = editor;
+      onReady(editor);
+    })();
+
     return () => {
+      cancelled = true;
+      const current = editor;
       editorRef.current = null;
-      onTeardown(editor);
-      editor.destroy();
+      if (current) {
+        onTeardown(current);
+        current.destroy();
+      }
     };
     // Only a different document rebuilds the editor.
     //
