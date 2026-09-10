@@ -66,6 +66,7 @@ describe('what the box offers to finish', () => {
   it('finishes an operator keyword from a bare word', () => {
     expect(at('ty').candidates.map((one) => one.label)).toEqual(['type:']);
     expect(at('sc').candidates.map((one) => one.label)).toEqual(['scope:']);
+    expect(at('re').candidates.map((one) => one.label)).toEqual(['re:']);
     expect(at('kestrel').candidates).toEqual([]);
   });
 

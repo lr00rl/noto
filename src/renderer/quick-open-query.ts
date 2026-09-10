@@ -10,6 +10,7 @@
  *   type:folder    d, dir, dirs, folders
  *   type:content   c, text       the words inside notes
  *   scope:works/jobs             only inside that folder
+ *   re:foo.*                     content as a regular expression
  *
  * The tab is the default and the token is the statement: a query that says
  * `type:content` searches contents whichever tab is showing, which is what
@@ -25,8 +26,8 @@ export const TYPE_VALUES = ['file', 'folder', 'content'] as const;
 
 export type SearchType = (typeof TYPE_VALUES)[number];
 
-/** The two operators, which is also the order they complete in. */
-export const OPERATORS = ['type', 'scope'] as const;
+/** The operators, which is also the order they complete in. */
+export const OPERATORS = ['type', 'scope', 're'] as const;
 
 const TYPE_ALIASES: Readonly<Record<string, SearchType>> = {
   file: 'file', f: 'file', files: 'file',
@@ -209,7 +210,10 @@ export function completeQuery(
   }
 
   const lower = text.toLowerCase();
-  const keywords = OPERATORS.filter((operator) => operator.startsWith(lower) && operator !== lower);
+  const keywords = OPERATORS.filter((operator) => {
+    const label = `${operator}:`;
+    return label.toLowerCase().startsWith(lower) && lower !== label.toLowerCase();
+  });
   if (keywords.length > 0) {
     const candidates = keywords.slice(0, limit).map((operator) => {
       const label = `${operator}:`;

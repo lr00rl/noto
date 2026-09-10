@@ -6,7 +6,10 @@
  * this vault means holding tens of megabytes of text in the main process and
  * then owning its invalidation, for a query that already answers in a quarter
  * of a second. Shelling out to ripgrep means the feature works on machines that
- * happen to have it and silently does not on the rest.
+ * happen to have it and silently does not on the rest; the grammar still
+ * follows rg's default (every word must appear, `re:` for an expression) so
+ * the box feels like the Typora plugin without making the binary a
+ * requirement. A plugin that wants the real `rg` can own that later.
  *
  * Measured on the author's vault, 7,066 notes and 82.5 MB of markdown: a full
  * scan takes about 1.3 seconds cold and 274 ms once the operating system has
@@ -18,6 +21,7 @@
  * because the cost here is waiting for the disk rather than doing arithmetic.
  */
 
+import { parseContentNeedles } from '../../shared/search/content-query';
 import { PLAIN_FLAGS, patternFor, type SearchFlags } from '../../shared/search/pattern';
 import { readFile } from 'node:fs/promises';
 import type {
@@ -58,14 +62,15 @@ export interface ContentSearchOptions {
  */
 export function matchesIn(
   text: string,
-  pattern: RegExp,
+  pattern: RegExp | readonly RegExp[],
   limit = MAX_PER_FILE,
 ): { line: string; lineNumber: number; column: number; length: number }[] {
+  const patterns = Array.isArray(pattern) ? pattern : [pattern];
   const found: { line: string; lineNumber: number; column: number; length: number }[] = [];
   const lines = text.split('\n');
   for (let index = 0; index < lines.length && found.length < limit; index += 1) {
     const line = lines[index];
-    const hit = firstHit(line, pattern);
+    const hit = firstHitAny(line, patterns);
     if (hit === null) continue;
     // A very long line is shown around its match rather than from its start,
     // because the point of the line is to show the query in context.
@@ -92,6 +97,20 @@ function firstHit(line: string, pattern: RegExp): { at: number; length: number }
     pattern.lastIndex = match.index + 1;
     if (pattern.lastIndex > line.length) return null;
   }
+}
+
+/** The leftmost non-empty hit among several patterns. */
+function firstHitAny(
+  line: string,
+  patterns: readonly RegExp[],
+): { at: number; length: number } | null {
+  let best: { at: number; length: number } | null = null;
+  for (const pattern of patterns) {
+    const hit = firstHit(line, pattern);
+    if (hit === null) continue;
+    if (best === null || hit.at < best.at) best = hit;
+  }
+  return best;
 }
 
 /** Every non-empty match in a file, which is what a note is ranked by. */
@@ -146,9 +165,17 @@ export async function searchContent(
   if (needle.length === 0) {
     return { version: 1, matches: [], scanned: 0, truncated: false, timedOut: false, invalidPattern: false };
   }
-  const pattern = patternFor(needle, flags);
-  if (pattern === null) {
-    return { version: 1, matches: [], scanned: 0, truncated: false, timedOut: false, invalidPattern: true };
+  const parsed = parseContentNeedles(needle, flags);
+  if (parsed.needles.length === 0) {
+    return { version: 1, matches: [], scanned: 0, truncated: false, timedOut: false, invalidPattern: parsed.regex };
+  }
+  const compiled: RegExp[] = [];
+  for (const item of parsed.needles) {
+    const pattern = patternFor(item, { ...flags, regex: parsed.regex });
+    if (pattern === null) {
+      return { version: 1, matches: [], scanned: 0, truncated: false, timedOut: false, invalidPattern: true };
+    }
+    compiled.push(pattern);
   }
 
   const budget = options.budgetMs ?? SEARCH_BUDGET_MS;
@@ -175,11 +202,17 @@ export async function searchContent(
     }
     scanned += 1;
 
-    const hits = matchesIn(text, pattern);
+    // Fresh lastIndex per file: the same compiled objects are shared across
+    // the pool, and a global regex's cursor is not safe to share.
+    const patterns = compiled.map((item) => new RegExp(item.source, item.flags));
+    let total = 0;
+    for (const pattern of patterns) {
+      const count = countOccurrences(text, pattern);
+      if (count === 0) return;
+      total += count;
+    }
+    const hits = matchesIn(text, patterns);
     if (hits.length === 0) return;
-    // Counted across the whole file, not just the lines kept, so a note that
-    // mentions the query thirty times outranks one that mentions it once.
-    const total = countOccurrences(text, pattern);
     found.push({ entry, hits, total });
   });
 

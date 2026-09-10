@@ -134,4 +134,23 @@ test.describe('the query language', () => {
       await app.close();
     }
   });
+
+  test('content matches every word, or re: for an expression', async () => {
+    const { app, page } = await launch('and');
+    try {
+      const input = page.getByTestId('quick-input');
+      await input.fill('type:content kestrel plan');
+      await expect(page.getByTestId('quick-match')).toHaveCount(1, { timeout: 15_000 });
+      await expect(page.getByTestId('quick-match')).toContainText('plan.md');
+
+      await input.fill('type:content re:kestrel.+Monday');
+      await expect(page.getByTestId('quick-match')).toHaveCount(1, { timeout: 15_000 });
+      await expect(page.getByTestId('quick-match')).toContainText('monday.md');
+
+      await input.fill('type:file hir ing');
+      await expect(page.getByTestId('quick-result').first()).toContainText('hiring.md');
+    } finally {
+      await app.close();
+    }
+  });
 });

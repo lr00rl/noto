@@ -14,7 +14,14 @@
  * Matching is a code-unit subsequence over lowercased text, which is CJK safe
  * as it stands: Han characters are in the BMP and are unaffected by case
  * folding, so a query in Chinese matches the same way one in English does.
+ *
+ * A space is AND of such subsequences, the way `fzf --filter` treats one. The
+ * in-process scorer used to demand the space itself appear in the name, so
+ * `open jobs` missed `openjobs.md` while the Typora plugin (with fzf on PATH)
+ * found it. Quoted phrases stay one term.
  */
+
+import { tokenizeQuery } from '../query-terms';
 
 /** Everything a candidate offers the scorer, all pre-lowercased. */
 export interface ScoreKeys {
@@ -81,10 +88,10 @@ export function fuzzyScore(text: string, query: string): number {
   return score;
 }
 
-/** Which characters of `text` the match consumed, for highlighting. */
-export function matchPositions(text: string, query: string): number[] | null {
+/** Positions one term consumed, or null if that term is not a subsequence. */
+function matchPositionsOne(text: string, term: string): number[] | null {
   const lowerText = text.toLowerCase();
-  const lowerQuery = query.toLowerCase().trim();
+  const lowerQuery = term.toLowerCase();
   if (lowerQuery.length === 0) return [];
 
   const positions: number[] = [];
@@ -99,17 +106,52 @@ export function matchPositions(text: string, query: string): number[] | null {
 }
 
 /**
+ * Which characters of `text` the match consumed, for highlighting.
+ *
+ * Terms that do not appear in this particular string are skipped rather than
+ * failing the highlight: a row can match because one word is in the name and
+ * another is in the path, and the name still wants its own marks.
+ */
+export function matchPositions(text: string, query: string): number[] | null {
+  const terms = tokenizeQuery(query);
+  if (terms.length === 0) return [];
+  const found = new Set<number>();
+  let any = false;
+  for (const term of terms) {
+    const positions = matchPositionsOne(text, term);
+    if (positions === null || positions.length === 0) continue;
+    any = true;
+    for (const position of positions) found.add(position);
+  }
+  return any ? [...found].sort((a, b) => a - b) : null;
+}
+
+/**
  * The best a candidate scores across the keys it offers.
  *
  * The name is worth more than the path, because people search for what a note
  * is called far more often than for where it lives. A query containing a slash
- * says otherwise about itself, and flips the weighting.
+ * says otherwise about itself, and flips the weighting. Every term has to
+ * score on at least one key, which is fzf's AND.
  */
 export function scoreCandidate(keys: ScoreKeys, query: string, options: ScoreOptions): number {
-  const name = fuzzyScore(keys.nameKey, query) + (options.pathQuery ? 6 : 25);
-  const path = fuzzyScore(keys.pathKey, query) + (options.pathQuery ? 22 : 8);
-  const best = Math.max(name, path);
-  return best === NO_MATCH ? NO_MATCH : best + options.frecencyBoost;
+  const terms = tokenizeQuery(query);
+  if (terms.length === 0) return options.frecencyBoost;
+
+  const nameBoost = options.pathQuery ? 6 : 25;
+  const pathBoost = options.pathQuery ? 22 : 8;
+  let total = 0;
+  for (const term of terms) {
+    const name = fuzzyScore(keys.nameKey, term);
+    const path = fuzzyScore(keys.pathKey, term);
+    const best = Math.max(
+      name === NO_MATCH ? NO_MATCH : name + nameBoost,
+      path === NO_MATCH ? NO_MATCH : path + pathBoost,
+    );
+    if (best === NO_MATCH) return NO_MATCH;
+    total += best;
+  }
+  return total / terms.length + options.frecencyBoost;
 }
 
 /** A query is about location when it names one. */

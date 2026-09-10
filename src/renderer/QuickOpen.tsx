@@ -66,6 +66,7 @@ export interface QuickOpenProps {
     matches: readonly WorkspaceContentMatchV1[];
     truncated: boolean;
     timedOut: boolean;
+    invalidPattern?: boolean;
   } | null>;
   /** Opens a note and puts the query's first match on screen. */
   readonly onOpenMatch: (path: string, query: string) => void;
@@ -140,7 +141,7 @@ export function QuickOpen({
   const terms = parsed.terms;
 
   const [content, setContent] = useState<{
-    matches: readonly WorkspaceContentMatchV1[]; truncated: boolean; timedOut: boolean;
+    matches: readonly WorkspaceContentMatchV1[]; truncated: boolean; timedOut: boolean; invalidPattern?: boolean;
   }>({ matches: [], truncated: false, timedOut: false });
   const [searching, setSearching] = useState(false);
 
@@ -476,12 +477,14 @@ export function QuickOpen({
               ? (
                 <p className="quick-empty">
                   {terms.trim().length === 0
-                    ? 'Type to search inside every note in this folder.'
+                    ? 'Type words to match every one of them, or re: for a regular expression.'
                     : searching
                       ? 'Searching…'
-                      : content.timedOut
-                        ? 'That search took too long. Try a longer query.'
-                        : 'No note contains that.'}
+                      : content.invalidPattern
+                        ? 'That expression does not parse.'
+                        : content.timedOut
+                          ? 'That search took too long. Try a longer query.'
+                          : 'No note contains that.'}
                 </p>
               )
               : content.matches.map((match, index) => (
@@ -566,6 +569,7 @@ export function QuickOpen({
           {scope.length > 0 && <span><kbd>⌫</kbd> leave the folder</span>}
           <span><kbd>{'⌘[ ⌘]'}</kbd> width</span>
           <span><kbd>esc</kbd> close</span>
+          {effectiveMode === 'content' && <span>words are AND · <kbd>re:</kbd> regex</span>}
           {effectiveMode === 'content' && content.truncated && (
             <span className="quick-truncated">Showing the first {content.matches.length}.</span>
           )}

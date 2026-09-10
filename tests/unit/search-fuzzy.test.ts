@@ -39,6 +39,14 @@ describe('fuzzy scoring', () => {
     expect(fuzzyScore('发展规划', '发展')).toBeGreaterThan(NO_MATCH);
     expect(matchPositions('AAA_发展规划.md', '发展')).toEqual([4, 5]);
   });
+
+  it('treats a space as AND of subsequences, the way fzf --filter does', () => {
+    expect(scoreCandidate(keys('openjobs.md', 'works/openjobs.md'), 'open jobs', plain))
+      .toBeGreaterThan(NO_MATCH);
+    expect(scoreCandidate(keys('opening.md', 'works/opening.md'), 'open jobs', plain))
+      .toBe(NO_MATCH);
+    expect(matchPositions('openjobs.md', 'open jobs')).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+  });
 });
 
 describe('choosing between a name and a path', () => {

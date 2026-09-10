@@ -154,3 +154,33 @@ describe('the three switches', () => {
     expect(reply.scanned).toBe(0);
   });
 });
+
+describe('several words, or an expression', () => {
+  const files = {
+    'both.md': 'auth then redis in the same note',
+    'auth.md': 'auth only',
+    'redis.md': 'redis only',
+    'phrase.md': 'the auth redis pair on one line',
+  };
+
+  it('treats spaces as AND of literals, the way rg does by default', async () => {
+    const reply = await search(files, 'auth redis');
+    expect(reply.matches.map((match) => match.relativePath)).toEqual(['both.md', 'phrase.md']);
+  });
+
+  it('keeps a quoted phrase exact', async () => {
+    const reply = await search(files, '"auth redis"');
+    expect(reply.matches.map((match) => match.relativePath)).toEqual(['phrase.md']);
+  });
+
+  it('reads re: as a regular expression without a second switch', async () => {
+    const reply = await search(files, 're:auth.+redis');
+    expect(reply.matches.map((match) => match.relativePath)).toEqual(['both.md', 'phrase.md']);
+  });
+
+  it('says when re: does not parse', async () => {
+    const reply = await search(files, 're:(');
+    expect(reply.invalidPattern).toBe(true);
+    expect(reply.matches).toEqual([]);
+  });
+});
