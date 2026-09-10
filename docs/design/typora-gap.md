@@ -1301,9 +1301,22 @@ Not in this slice: writing tags from a palette into the frontmatter, a
 `.typora` on-disk index, or a graph view of the tag net. The hard requirement
 that the file stay friendly without a plugin is what this one does.
 
+## 67. A timeline fence was only source. Closed.
+
+The author's `timeline` brief is the Typora plugin's: a fenced code block
+whose language is `timeline`, drawn as a vertical chronology. The file keeps
+ordinary markdown — a `#` title, `##` times, then paragraphs, lists, tasks,
+quotes and rules — so a note opened elsewhere still reads.
+
+Noto now draws that fence the way mermaid is drawn: the chronology beside the
+source while the caret is elsewhere, the source back when it enters.
+`Paragraph > Timeline` inserts a small template. A Preferences switch turns
+the drawing off; it is on by default.
+
+
 # Where things stand
 
-## Plugins: nine of sixteen, in some form
+## Plugins: twelve of sixteen, in some form
 
 Real ports: Title Shift, Markdown Padding. Native equivalents: `wider` is the
 width modes, `tree-guides` is the connector lines and the sticky folders,
@@ -1312,11 +1325,11 @@ open's link mode with wiki-link rendering, `fence-enhance` is the fence gutter
 with its language, its copy button, its indent guides and its tab markers,
 `sidenote` is the numbered margin note for `<span class="sidenote">`,
 `todo-manager` is the check date and the sort, `file-tags` is the frontmatter
-chips and Browse Tags, and `trail` is back and forward in the title bar and the
-Go menu, three notes each way. Not done: `timeline`, `code-viewer` and
-`drawio`; `recent-files` exists as a menu and a status strip rather than as
-the plugin's behaviour, and `remote-control` is infrastructure rather than a
-feature.
+chips and Browse Tags, `timeline` is the chronology fence, and `trail` is back
+and forward in the title bar and the Go menu, three notes each way. Not done:
+`code-viewer` and `drawio`; `recent-files` exists as a menu and a status strip
+rather than as the plugin's behaviour, and `remote-control` is infrastructure
+rather than a feature.
 
 ## Where Noto is ahead
 
@@ -1334,5 +1347,6 @@ behind it; done, including `<img>` inside HTML. Then the prose scale, tables
 and inline code together, since they are one stylesheet and one pass with the
 theme open beside it; done. Then line numbers and tree icons; both done. The
 remaining plugins after that, in the order the author names them;
-`fence-enhance` itself is now complete, and `sidenote`, `todo-manager` and
-`file-tags` are closed.
+`fence-enhance` itself is now complete, and `sidenote`, `todo-manager`,
+`file-tags` and `timeline` are closed, with `code-viewer` and `drawio` still
+open.
