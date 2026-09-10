@@ -82,7 +82,10 @@ export class FenceView implements NodeView {
     // a position from a click on something that is not content.
     this.gutter.addEventListener('mousedown', (event) => {
       event.preventDefault();
-      this.caretToLine(this.lineAt(event.offsetY));
+      // Prefer clientY over offsetY: synthetic CDP mouse clicks (Playwright)
+      // often report offsetY as 0, which always mapped to the first line.
+      const top = this.gutter.getBoundingClientRect().top;
+      this.caretToLine(this.lineAt(event.clientY - top));
     });
 
     this.contentDOM = document.createElement('code');
