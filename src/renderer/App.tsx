@@ -51,6 +51,7 @@ import {
 import type { AssetRefusalV1 } from '../shared/assets/v1/contracts';
 import { copyThroughSelection } from './editor/noto/clipboard';
 import type { WorkspaceEntryRefusalV1, WorkspaceExportKindV1 } from '../shared/workspace/v1/contracts';
+import { EXPORT_PALETTE_COMMANDS } from '../shared/export/targets';
 import { EMPTY_TRAIL, forget as forgetTrail, record as recordTrail, stepBack, stepForward, type Trail } from './trail';
 import { wikiCandidates } from './wiki-target';
 import type { NotoEditor } from './editor/noto/NotoEditor';
@@ -1525,6 +1526,40 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
     else editorRef.current?.pasteText(event.text);
   }), []);
 
+  /**
+   * Write the note in front out as something else.
+   *
+   * Shared by the File menu and the command palette so the two cannot drift:
+   * both ask main the same way, with the editor's own markup for the formats
+   * Noto renders and nothing for the ones Pandoc converts from the file.
+   */
+  const exportNote = useCallback((target: WorkspaceExportKindV1) => {
+    const editor = editorRef.current;
+    const current = docsRef.current.get(activeIdRef.current ?? '') ?? null;
+    if (!editor || !current) { setLocalMessage('Open a note first.'); return; }
+    const rendered = target === 'pdf' || target === 'html' || target === 'html-plain';
+    void window.notoWorkspace.exportRendered({
+      version: 1,
+      requestId: rid('export'),
+      target,
+      html: rendered ? editor.documentHtml() : null,
+      title: noteTitle(current.opened.path),
+      dirty: current.dirty,
+    }).then((result) => {
+      if (!result.ok) {
+        setLocalMessage(actionableFileTruthMessage(result.error.message, 'That could not be exported.'));
+        return;
+      }
+      if (result.value.exported) {
+        setLocalMessage(`Exported to ${result.value.path.split('/').pop() ?? 'the file'}.`);
+        return;
+      }
+      if (result.value.reason !== 'cancelled') {
+        setLocalMessage(exportRefusalMessage(result.value.reason));
+      }
+    });
+  }, []);
+
   useEffect(() => window.notoWorkspace.onMenuCommand((event) => {
     switch (event.command) {
       case 'save':
@@ -1613,33 +1648,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
       case 'export-docx': case 'export-odt': case 'export-rtf': case 'export-epub':
       case 'export-latex': case 'export-mediawiki': case 'export-rst':
       case 'export-textile': case 'export-opml': {
-        const target = event.command.slice('export-'.length) as WorkspaceExportKindV1;
-        const editor = editorRef.current;
-        const current = docsRef.current.get(activeIdRef.current ?? '') ?? null;
-        if (!editor || !current) { setLocalMessage('Open a note first.'); break; }
-        // Only the rendered targets need the markup. The rest are a conversion
-        // of the file, which main reads for itself.
-        const rendered = target === 'pdf' || target === 'html' || target === 'html-plain';
-        void window.notoWorkspace.exportRendered({
-          version: 1,
-          requestId: rid('export'),
-          target,
-          html: rendered ? editor.documentHtml() : null,
-          title: noteTitle(current.opened.path),
-          dirty: current.dirty,
-        }).then((result) => {
-          if (!result.ok) {
-            setLocalMessage(actionableFileTruthMessage(result.error.message, 'That could not be exported.'));
-            return;
-          }
-          if (result.value.exported) {
-            setLocalMessage(`Exported to ${result.value.path.split('/').pop() ?? 'the file'}.`);
-            return;
-          }
-          if (result.value.reason !== 'cancelled') {
-            setLocalMessage(exportRefusalMessage(result.value.reason));
-          }
-        });
+        exportNote(event.command.slice('export-'.length) as WorkspaceExportKindV1);
         break;
       }
       case 'toggle-always-on-top':
@@ -1791,23 +1800,33 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
   }));
 
   /**
-   * Commands offered by plugins that are currently running.
+   * Built-in export first, then whatever active plugins offer.
    *
-   * Titles come from the bundled manifests because lifecycle snapshots carry
-   * only state, not the command list. Third-party commands arrive over the
-   * snapshot once the trusted plugin tier lands.
+   * Export is the largest Typora habit that used to live only in the File menu,
+   * so a reader who reaches for the palette looking for it finds it. Plugin
+   * commands keep their own source label underneath.
    */
-  const paletteCommands = useMemo(() => pluginSnapshots
-    .filter((snapshot) => snapshot.lifecycle === 'active')
-    .flatMap((snapshot) => {
-      const manifest = bundledManifests.get(snapshot.id);
-      return (manifest?.commands ?? []).map((command) => ({
-        pluginId: snapshot.id,
-        commandId: command.id,
-        title: command.title,
-        source: manifest?.name ?? snapshot.id,
-      }));
-    }), [pluginSnapshots]);
+  const paletteCommands = useMemo(() => {
+    const builtin = EXPORT_PALETTE_COMMANDS.map((command) => ({
+      kind: 'export' as const,
+      target: command.target,
+      title: command.title,
+      source: command.source,
+    }));
+    const plugins = pluginSnapshots
+      .filter((snapshot) => snapshot.lifecycle === 'active')
+      .flatMap((snapshot) => {
+        const manifest = bundledManifests.get(snapshot.id);
+        return (manifest?.commands ?? []).map((command) => ({
+          kind: 'plugin' as const,
+          pluginId: snapshot.id,
+          commandId: command.id,
+          title: command.title,
+          source: manifest?.name ?? snapshot.id,
+        }));
+      });
+    return [...builtin, ...plugins];
+  }, [pluginSnapshots]);
 
   const outline = useMemo(() => (document ? outlineOf(document.text) : []), [document]);
   /**
@@ -2195,15 +2214,21 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
             <strong>Commands</strong>
             <button type="button" onClick={() => setPaletteOpen(false)}>Close</button>
           </div>
-          {paletteCommands.length === 0
-            ? <p className="palette-empty">No plugin commands are available. Enable a plugin to see its commands here.</p>
-            : paletteCommands.map((command) => (
-                <button key={`${command.pluginId}:${command.commandId}`} type="button" className="palette-result"
-                  onClick={() => executePluginCommand(command.pluginId, command.commandId)}>
-                  <strong>{command.title}</strong>
-                  <span>{command.source}</span>
-                </button>
-              ))}
+          {paletteCommands.map((command) => (
+            <button
+              key={command.kind === 'export' ? `export:${command.target}` : `${command.pluginId}:${command.commandId}`}
+              type="button"
+              className="palette-result"
+              data-testid={command.kind === 'export' ? `palette-export-${command.target}` : undefined}
+              onClick={() => {
+                setPaletteOpen(false);
+                if (command.kind === 'export') exportNote(command.target);
+                else executePluginCommand(command.pluginId, command.commandId);
+              }}>
+              <strong>{command.title}</strong>
+              <span>{command.source}</span>
+            </button>
+          ))}
         </div>
       )}
 

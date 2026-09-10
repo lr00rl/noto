@@ -137,9 +137,15 @@ const EDITING_ATTRIBUTES = [
  * drawn tree is cloned and the editing furniture taken out of the copy, which
  * leaves the document and nothing else. The copy is why this cannot disturb
  * what is on screen.
+ *
+ * Diagrams need one more step. Mermaid draws inside a sandboxed iframe, and
+ * `cloneNode` does not carry an iframe's document, so without lifting the SVG
+ * out of the live frame an exported page would hold an empty box where every
+ * diagram was.
  */
 export function documentDomToHtml(root: HTMLElement): string {
   const copy = root.cloneNode(true) as HTMLElement;
+  transferDiagramDrawings(root, copy);
   copy.querySelectorAll(CHROME).forEach((node) => node.remove());
   copy.querySelectorAll('*').forEach((node) => {
     for (const attribute of EDITING_ATTRIBUTES) node.removeAttribute(attribute);
@@ -148,8 +154,58 @@ export function documentDomToHtml(root: HTMLElement): string {
   // own, hang on. Only the editor's own state classes go, since they describe
   // where a caret happens to be.
   copy.querySelectorAll('.noto-active-block').forEach((node) => node.classList.remove('noto-active-block'));
+  // A callout whose caret is inside shows its marker and hides its title. An
+  // exported page is not being edited, so every callout is shown the way a
+  // reader sees it with the caret elsewhere.
+  copy.querySelectorAll('.noto-alert-editing').forEach((node) => node.classList.remove('noto-alert-editing'));
   reduceMathToMathml(copy);
   return copy.innerHTML;
+}
+
+/**
+ * Put each live diagram's SVG into the matching node of a cloned tree.
+ *
+ * The live and copied `.noto-diagram` nodes are walked in document order, which
+ * is stable across a clone. A diagram that has not finished drawing, or that
+ * failed, keeps its status text and loses the empty iframe.
+ */
+export function transferDiagramDrawings(liveRoot: ParentNode, copyRoot: ParentNode): void {
+  const live = liveRoot.querySelectorAll('.noto-diagram');
+  const copied = copyRoot.querySelectorAll('.noto-diagram');
+  live.forEach((source, index) => {
+    const dest = copied[index];
+    if (!(source instanceof HTMLElement) || !(dest instanceof HTMLElement)) return;
+    materializeDiagram(source, dest);
+  });
+}
+
+/**
+ * Replace one cloned diagram frame with the drawing from its live counterpart.
+ *
+ * Pure against the destination: the live tree is only read. The SVG is cloned
+ * so the live frame keeps the one mermaid owns.
+ */
+export function materializeDiagram(live: HTMLElement, dest: HTMLElement): void {
+  const frame = live.querySelector('iframe.noto-diagram-frame');
+  const svg = frame instanceof HTMLIFrameElement
+    ? frame.contentDocument?.querySelector('svg') ?? null
+    : null;
+  dest.querySelectorAll('iframe').forEach((node) => node.remove());
+  if (svg && live.dataset.state === 'rendered') {
+    dest.replaceChildren(svg.cloneNode(true));
+    dest.dataset.state = 'rendered';
+    return;
+  }
+  // Nothing drawn: keep the status line if the live frame had one to say, and
+  // otherwise leave an empty diagram node rather than an iframe pointing at
+  // nothing the exported file can reach.
+  const status = dest.querySelector('.noto-diagram-status');
+  if (status instanceof HTMLElement) {
+    const message = (live.querySelector('.noto-diagram-status')?.textContent ?? '').trim();
+    if (message) status.textContent = message;
+    else status.remove();
+  }
+  dest.dataset.state = live.dataset.state === 'failed' ? 'failed' : 'empty';
 }
 
 /**

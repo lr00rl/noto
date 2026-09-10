@@ -17,6 +17,7 @@ import {
   suggestedName,
 } from '../../src/main/workspace/export-document';
 import { standaloneHtml, escapeHtml } from '../../src/shared/export/document-html';
+import { EXPORT_PALETTE_COMMANDS, EXPORT_TARGET_SHAPES } from '../../src/shared/export/targets';
 import { EXPORT_KINDS } from '../../src/shared/workspace/v1/contracts';
 
 describe('the export targets', () => {
@@ -172,5 +173,31 @@ describe('standaloneHtml', () => {
 
   it('escapes the five characters that can end an element or an attribute', () => {
     expect(escapeHtml(`<&>"'`)).toBe('&lt;&amp;&gt;&quot;&#39;');
+  });
+});
+
+describe('the palette and the menu share one list', () => {
+  it('offers every export target, under the File source', () => {
+    expect(EXPORT_PALETTE_COMMANDS.map((item) => item.target)).toEqual([...EXPORT_TARGETS]);
+    for (const item of EXPORT_PALETTE_COMMANDS) {
+      expect(item.source).toBe('File');
+      expect(item.title).toBe(`Export ${exportShape(item.target).label}…`);
+    }
+  });
+
+  it('keeps the shapes the menu already uses in shared, not a second copy', () => {
+    for (const kind of EXPORT_KINDS) {
+      expect(EXPORT_TARGET_SHAPES[kind]).toEqual(exportShape(kind));
+    }
+  });
+});
+
+describe('the exported stylesheet', () => {
+  it('carries callouts and diagrams, which the vault actually uses', () => {
+    const page = standaloneHtml({ title: 'x', body: '<div class="noto-alert"></div>', styled: true });
+    expect(page).toContain('.noto-alert');
+    expect(page).toContain('.noto-alert-note');
+    expect(page).toContain('.noto-diagram svg');
+    expect(page).toContain('break-inside: avoid');
   });
 });
