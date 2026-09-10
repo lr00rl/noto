@@ -45,6 +45,9 @@ export const MAX_PER_FILE = 3;
 /** Lines longer than this are cut around the match: a minified file is not context. */
 const MAX_LINE = 400;
 
+/** In regex mode, lines longer than this are skipped rather than matched. */
+const MAX_LINE_SCAN = MAX_LINE * 4;
+
 export interface ContentSearchOptions {
   readonly budgetMs?: number;
   readonly maxFiles?: number;
@@ -64,12 +67,14 @@ export function matchesIn(
   text: string,
   pattern: RegExp | readonly RegExp[],
   limit = MAX_PER_FILE,
+  options?: { readonly skipLineLongerThan?: number },
 ): { line: string; lineNumber: number; column: number; length: number }[] {
   const patterns = Array.isArray(pattern) ? pattern : [pattern];
   const found: { line: string; lineNumber: number; column: number; length: number }[] = [];
   const lines = text.split('\n');
   for (let index = 0; index < lines.length && found.length < limit; index += 1) {
     const line = lines[index];
+    if (options?.skipLineLongerThan !== undefined && line.length > options.skipLineLongerThan) continue;
     const hit = firstHitAny(line, patterns);
     if (hit === null) continue;
     // A very long line is shown around its match rather than from its start,
@@ -113,6 +118,19 @@ function firstHitAny(
   return best;
 }
 
+/** Every non-empty match on one line. */
+function countOccurrencesInLine(line: string, pattern: RegExp): number {
+  let count = 0;
+  pattern.lastIndex = 0;
+  for (;;) {
+    const match = pattern.exec(line);
+    if (match === null) return count;
+    if (match[0].length > 0) count += 1;
+    else pattern.lastIndex = match.index + 1;
+    if (pattern.lastIndex > line.length) return count;
+  }
+}
+
 /** Every non-empty match in a file, which is what a note is ranked by. */
 function countOccurrences(text: string, pattern: RegExp): number {
   let count = 0;
@@ -124,6 +142,34 @@ function countOccurrences(text: string, pattern: RegExp): number {
     else pattern.lastIndex = match.index + 1;
     if (pattern.lastIndex > text.length) return count;
   }
+}
+
+interface LineCountBudget {
+  readonly now: () => number;
+  readonly started: number;
+  readonly budgetMs: number;
+  onTimedOut: () => void;
+}
+
+/**
+ * Count matches line by line so a catastrophic expression cannot scan one
+ * huge buffer, and stop when the search budget runs out.
+ */
+function countOccurrencesPerLine(
+  text: string,
+  pattern: RegExp,
+  budget: LineCountBudget,
+): number | null {
+  let count = 0;
+  for (const line of text.split('\n')) {
+    if (budget.now() - budget.started > budget.budgetMs) {
+      budget.onTimedOut();
+      return null;
+    }
+    if (line.length > MAX_LINE_SCAN) continue;
+    count += countOccurrencesInLine(line, pattern);
+  }
+  return count;
 }
 
 /**
@@ -205,13 +251,27 @@ export async function searchContent(
     // Fresh lastIndex per file: the same compiled objects are shared across
     // the pool, and a global regex's cursor is not safe to share.
     const patterns = compiled.map((item) => new RegExp(item.source, item.flags));
+    const lineBudget: LineCountBudget = {
+      now,
+      started,
+      budgetMs: budget,
+      onTimedOut: () => { timedOut = true; },
+    };
     let total = 0;
     for (const pattern of patterns) {
-      const count = countOccurrences(text, pattern);
+      const count = parsed.regex
+        ? countOccurrencesPerLine(text, pattern, lineBudget)
+        : countOccurrences(text, pattern);
+      if (count === null) return;
       if (count === 0) return;
       total += count;
     }
-    const hits = matchesIn(text, patterns);
+    const hits = matchesIn(
+      text,
+      patterns,
+      MAX_PER_FILE,
+      parsed.regex ? { skipLineLongerThan: MAX_LINE_SCAN } : undefined,
+    );
     if (hits.length === 0) return;
     found.push({ entry, hits, total });
   });

@@ -49,6 +49,33 @@ export function outlineOf(text: string): OutlineEntry[] {
   return entries;
 }
 
+/** Github-shaped slug: lowercase, spaces to hyphens, keep letters and digits. */
+export function headingSlug(text: string): string {
+  return text.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\p{L}\p{N}-]/gu, '');
+}
+
+/**
+ * The outline row a `#fragment` means, or -1 when none matches.
+ *
+ * Tries the slug, then the heading text, then a decoded URI. A fragment that
+ * is already the heading's words should still land, because people paste both.
+ */
+export function blockIndexForFragment(entries: readonly OutlineEntry[], fragment: string): number {
+  const raw = fragment.trim();
+  if (raw.length === 0) return -1;
+  let decoded = raw;
+  try { decoded = decodeURIComponent(raw.replace(/\+/g, ' ')); } catch { /* keep raw */ }
+  const wanted = headingSlug(decoded);
+  const wantedText = decoded.trim().toLowerCase();
+  for (const entry of entries) {
+    if (headingSlug(entry.text) === wanted) return entry.blockIndex;
+  }
+  for (const entry of entries) {
+    if (entry.text.trim().toLowerCase() === wantedText) return entry.blockIndex;
+  }
+  return -1;
+}
+
 /** A heading with the headings nested under it. */
 export interface OutlineNode extends OutlineEntry {
   readonly children: readonly OutlineNode[];

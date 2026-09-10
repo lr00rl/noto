@@ -30,6 +30,7 @@ export function registerFileTruthHandlers(deps: {
     readonly currentPath: string | null;
     activeStore(): FileTruthStoreV1 | null;
     storeForDocument(documentId: string): FileTruthStoreV1 | null;
+    noteSaved(filePath: string, text: string): void;
   };
   getWindow: () => BrowserWindow | null;
   logger: StructuredLogger;
@@ -78,7 +79,13 @@ export function registerFileTruthHandlers(deps: {
     return activeStore().open(current);
   });
   register<FileTruthSaveRequestV1, Awaited<ReturnType<FileTruthStoreV1['save']>>>(FILE_TRUTH_CHANNELS.save, isFileTruthSaveRequestV1,
-    (request) => storeForSave(request.candidate.transaction.documentId).save(request.candidate));
+    async (request) => {
+      const outcome = await storeForSave(request.candidate.transaction.documentId).save(request.candidate);
+      if (outcome.status === 'saved') {
+        deps.session.noteSaved(outcome.accepted.canonicalPath, outcome.document.text);
+      }
+      return outcome;
+    });
   register<FileTruthSaveCopyRequestV1, Awaited<ReturnType<FileTruthStoreV1['saveCopy']>>>(FILE_TRUTH_CHANNELS.saveCopy, isFileTruthSaveCopyRequestV1,
     (request) => storeForSave(request.candidate.transaction.documentId)
       .saveCopy(request.candidate, request.destinationPath));

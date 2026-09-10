@@ -184,3 +184,36 @@ describe('several words, or an expression', () => {
     expect(reply.matches).toEqual([]);
   });
 });
+
+describe('regex on a large file', () => {
+  it('returns on many lines without freezing and respects the budget', async () => {
+    const lineCount = 500;
+    const evilLine = `${'a'.repeat(2000)}!`;
+    const body = Array.from({ length: lineCount }, (_, index) =>
+      (index % 50 === 0 ? 'auth then redis' : `line ${index} ${evilLine}`)).join('\n');
+    let clock = 0;
+    const reply = await searchContent(
+      [entry('big.md')],
+      're:auth.+redis',
+      PLAIN_FLAGS,
+      {
+        budgetMs: 20,
+        now: () => { clock += 1; return clock; },
+        read: async () => body,
+      },
+    );
+    expect(reply.timedOut).toBe(true);
+    expect(reply.scanned).toBe(1);
+  });
+
+  it('skips lines longer than four times MAX_LINE in regex mode', async () => {
+    const evil = `${'x'.repeat(2000)}auth then redis`;
+    const reply = await searchContent(
+      [entry('min.md')],
+      're:auth.+redis',
+      PLAIN_FLAGS,
+      { read: async () => evil },
+    );
+    expect(reply.matches).toEqual([]);
+  });
+});

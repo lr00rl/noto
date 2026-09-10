@@ -77,6 +77,8 @@ import { sliceToMarkdown } from './clipboard';
 
 /** How long after the last keystroke the document is counted. */
 const COUNT_DELAY_MS = 400;
+/** Wait out a drag before growing a format HUD under the pointer. */
+const HUD_DELAY_MS = 120;
 
 /* The three substitutions are booleans here and functions on the rules, which
    read them each time so a change of setting reaches an editor already open. */
@@ -562,7 +564,9 @@ export class NotoEditor implements NotoEditorPort {
     const { selection } = view.state;
     const { $from, from, to, empty } = selection;
 
-    const token = slashToken($from.parent.type.name, $from.parent.textBetween(0, $from.parent.content.size), $from.parentOffset);
+    const token = this.isComposing
+      ? null
+      : slashToken($from.parent.type.name, $from.parent.textBetween(0, $from.parent.content.size), $from.parentOffset);
     if (token && this.options.onSlashQuery) {
       const coords = view.coordsAtPos($from.start() + token.start);
       this.options.onSlashQuery({
@@ -602,7 +606,7 @@ export class NotoEditor implements NotoEditorPort {
         bottom: rect.bottom,
         active: this.formatHudActive(),
       });
-    }, 120);
+    }, HUD_DELAY_MS);
   }
 
   /**

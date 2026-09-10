@@ -18,6 +18,8 @@ export interface RailLinksProps {
   readonly currentPath: string | null;
   readonly onLinks: (path: string) => Promise<LinksOutcome>;
   readonly onOpen: (path: string) => void;
+  /** Bumped when a file event says the neighbourhood may have changed. */
+  readonly refreshToken?: number;
 }
 
 function Section({ title, items, onOpen, testId }: {
@@ -44,7 +46,7 @@ function Section({ title, items, onOpen, testId }: {
   );
 }
 
-export function RailLinks({ currentPath, onLinks, onOpen }: RailLinksProps) {
+export function RailLinks({ currentPath, onLinks, onOpen, refreshToken = 0 }: RailLinksProps) {
   const [reply, setReply] = useState<WorkspaceLinksReplyV1 | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -59,7 +61,7 @@ export function RailLinks({ currentPath, onLinks, onOpen }: RailLinksProps) {
       setLoading(false);
     });
     return () => { live = false; };
-  }, [currentPath, onLinks]);
+  }, [currentPath, onLinks, refreshToken]);
 
   if (currentPath === null) return <p className="rail-empty">Open a note to see what it is linked to.</p>;
   if (reply === null && error === null) return <p className="rail-empty">Reading links…</p>;

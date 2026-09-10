@@ -9,7 +9,7 @@
 
 import { fromLf } from '../shared/markdown/v3/line-endings';
 import { PLAIN_FLAGS, type SearchFlags } from '../shared/search/pattern';
-import { parseContentNeedles } from '../shared/search/content-query';
+import { parseContentNeedles, findBarFromNeedles } from '../shared/search/content-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type {
   FileTruthOpenReplyV1,
@@ -31,7 +31,7 @@ import {
   pruneStore, recordOpen, searchBoost, type FrecencyStoreV1,
 } from '../shared/search/v1/frecency';
 import type { NotoDocumentWire } from '../shared/markdown/v3/contracts';
-import { outlineOf } from './outline';
+import { outlineOf, blockIndexForFragment } from './outline';
 import { PLUGIN_LIFECYCLE_VERSION, type PluginLifecycleSnapshot } from '../shared/plugins/lifecycle';
 import { rendererProofManifest } from '../shared/plugins/proof-manifests';
 import {
@@ -382,7 +382,10 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
   const followWikiLinkRef = useRef<(target: string) => void>(() => {});
   const followLinkRef = useRef<(href: string) => void>(() => {});
   /** A content-search query waiting for its document to arrive. */
-  const pendingMatchRef = useRef<string | null>(null);
+  const pendingMatchRef = useRef<{ path: string; query: string; regex: boolean } | null>(null);
+  /** A `#heading` waiting for the note it belongs to to be ready. */
+  const pendingHeadingRef = useRef<{ path: string; fragment: string } | null>(null);
+  const [linksEpoch, setLinksEpoch] = useState(0);
   const ensureFileIndexRef = useRef<() => Promise<void>>(async () => {});
   const refreshRecentFoldersRef = useRef<() => void>(() => {});
   const [fileIndex, setFileIndex] = useState<{
@@ -422,9 +425,33 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
       ? { open: false, section }
       : { open: true, section }));
   }, []);
-  const [find, setFind] = useState<{ open: boolean; replace: boolean; query?: string }>(
+  const [find, setFind] = useState<{ open: boolean; replace: boolean; query?: string; regex?: boolean }>(
     { open: false, replace: false },
   );
+  /**
+   * A content-search query or a `#heading` waiting for its editor.
+   *
+   * Applied from `onReady` for a newly mounted editor, and again when the
+   * front tab changes, because switching to a note that is already open does
+   * not run `onReady` a second time.
+   */
+  const adoptPendingSurfaces = (editor: NotoEditor, text: string, filePath: string) => {
+    const pending = pendingMatchRef.current;
+    if (pending?.path === filePath) {
+      pendingMatchRef.current = null;
+      if (pending.query.length > 0) {
+        setFind({
+          open: true, replace: false, query: pending.query, regex: pending.regex,
+        });
+      }
+    }
+    const heading = pendingHeadingRef.current;
+    if (heading?.path !== filePath) return;
+    pendingHeadingRef.current = null;
+    const index = blockIndexForFragment(outlineOf(text), heading.fragment);
+    if (index >= 0) editor.focusBlock(index);
+    else setLocalMessage(`No heading in this note is called “${heading.fragment}”.`);
+  };
   const findRef = useRef(find);
   findRef.current = find;
   /*
@@ -761,6 +788,14 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
     const unsubscribeTree = window.notoWorkspace.onTreeChanged(() => {
       if (active) setTreeVersion((current) => current + 1);
     });
+    let filesTimer: ReturnType<typeof setTimeout> | null = null;
+    const unsubscribeFiles = window.notoWorkspace.onFileEvent(() => {
+      if (filesTimer) clearTimeout(filesTimer);
+      filesTimer = setTimeout(() => {
+        filesTimer = null;
+        if (active) setLinksEpoch((current) => current + 1);
+      }, 300);
+    });
     const unsubscribeRename = window.notoWorkspace.onRenameRow((event) => {
       if (active) setTreeEditing({ path: event.path, intent: event.intent });
     });
@@ -835,9 +870,11 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
     void open();
     return () => {
       active = false;
+      if (filesTimer) clearTimeout(filesTimer);
       unsubscribe();
       unsubscribeExternal();
       unsubscribeTree();
+      unsubscribeFiles();
       unsubscribeRename();
       unsubscribeTabs();
       unsubscribeFolder();
@@ -853,7 +890,17 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
       editorDirtyRef.current = active.dirty;
       cleanStateRef.current = active.cleanState;
     }
-  }, [activeId, docs, active]);
+    setSlash(null);
+    setFormatHud(null);
+  }, [activeId, docs, active, sourceMode]);
+
+  useEffect(() => {
+    if (!activeId) return;
+    const editor = editorsRef.current.get(activeId);
+    const doc = docsRef.current.get(activeId);
+    if (!editor || !doc) return;
+    adoptPendingSurfaces(editor, doc.document.text, doc.opened.path);
+  }, [activeId]);
 
   const activateTab = useCallback((filePath: string) => {
     void window.notoWorkspace.activateTab({ version: 1, requestId: rid('tab-activate'), path: filePath });
@@ -1163,20 +1210,29 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
    * meant.
    */
   const followWikiLink = useCallback((target: string) => {
+    const hash = target.indexOf('#');
+    const note = hash >= 0 ? target.slice(0, hash) : target;
+    const fragment = hash >= 0 ? target.slice(hash + 1) : '';
+    if (note.length === 0) {
+      if (fragment.length === 0) {
+        setLocalMessage('That link has nowhere to go.');
+        return;
+      }
+      const index = blockIndexForFragment(outlineOf(document?.text ?? ''), fragment);
+      if (index < 0) setLocalMessage(`No heading in this note is called “${fragment}”.`);
+      else editorRef.current?.focusBlock(index);
+      return;
+    }
     const here = active?.opened.path ?? null;
     const root = folder.root;
     const fromRelative = here !== null && root !== null && here.startsWith(root)
       ? here.slice(root.length).replace(/^[\\/]+/, '')
       : null;
-    const matches = wikiCandidates(target, fromRelative, fileIndex.entries);
+    const matches = wikiCandidates(note, fromRelative, fileIndex.entries);
     if (matches.length === 0) {
-      setLocalMessage(`No note in this folder is called “${target}”.`);
+      setLocalMessage(`No note in this folder is called “${note}”.`);
       return;
     }
-    // The first is the one the path points at, which is not a matter of
-    // taste. Only a bare name that several notes answer to is decided by
-    // frecency, on the grounds that the one you keep opening is the one you
-    // meant, and the resolver has already put the nearest of them first.
     const now = Date.now();
     const best = matches.length === 1 ? matches[0] : matches.slice(0, 1).concat(
       matches.slice(1).filter((entry) =>
@@ -1184,8 +1240,15 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
     ).reduce((chosen, entry) => (
       searchBoost(frecency, entry.path, now) > searchBoost(frecency, chosen.path, now) ? entry : chosen
     ));
+    if (here === best.path && fragment.length > 0) {
+      const index = blockIndexForFragment(outlineOf(document?.text ?? ''), fragment);
+      if (index >= 0) editorRef.current?.focusBlock(index);
+      else setLocalMessage(`No heading in this note is called “${fragment}”.`);
+      return;
+    }
+    pendingHeadingRef.current = fragment.length > 0 ? { path: best.path, fragment } : null;
     void openPath(best.path);
-  }, [active, folder.root, fileIndex.entries, frecency, openPath]);
+  }, [active, folder.root, fileIndex.entries, frecency, openPath, document]);
   followWikiLinkRef.current = followWikiLink;
 
   /**
@@ -1195,8 +1258,8 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
    * scheme again before handing anything to the operating system. Anything
    * else is treated as a note in this folder and resolved the way a wiki link
    * is, by relative path and then by name, so `./chapters/one.md` and `one.md`
-   * both land. An address with a fragment loses it: nothing here scrolls to a
-   * heading yet, and opening the right note is most of the way there.
+   * both land. An address with a fragment is opened, then the heading is
+   * scrolled to once the editor is ready.
    */
   const followLink = useCallback((href: string) => {
     if (/^[a-z][a-z0-9+.-]*:/i.test(href)) {
@@ -1208,9 +1271,11 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
       });
       return;
     }
-    const withoutFragment = href.split('#')[0];
+    const hash = href.indexOf('#');
+    const withoutFragment = hash >= 0 ? href.slice(0, hash) : href;
+    const fragment = hash >= 0 ? href.slice(hash + 1) : '';
     if (withoutFragment.length === 0) {
-      setLocalMessage('A link to a place inside this note is not followed yet.');
+      followWikiLink(`#${fragment}`);
       return;
     }
     let target = withoutFragment;
@@ -1219,7 +1284,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
     } catch {
       // A malformed escape is not worth refusing over; the raw text may match.
     }
-    followWikiLink(target.replace(/^\.\//, ''));
+    followWikiLink(fragment.length > 0 ? `${target.replace(/^\.\//, '')}#${fragment}` : target.replace(/^\.\//, ''));
   }, [followWikiLink]);
   followLinkRef.current = followLink;
 
@@ -1267,13 +1332,18 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
    * that has not arrived finds nothing.
    */
   const openMatch = useCallback((filePath: string, query: string) => {
-    // Recorded before the open, not after it. The document is adopted through
-    // an event rather than through the reply, so the editor can be mounted and
-    // asking for a pending query before the promise this awaits has settled.
-    const needles = parseContentNeedles(query, PLAIN_FLAGS).needles;
-    pendingMatchRef.current = needles[0] ?? query;
+    const pending = { path: filePath, ...findBarFromNeedles(parseContentNeedles(query, PLAIN_FLAGS)) };
+    const here = active?.opened.path ?? null;
+    if (here === filePath) {
+      pendingMatchRef.current = null;
+      if (pending.query.length > 0) {
+        setFind({ open: true, replace: false, query: pending.query, regex: pending.regex });
+      }
+      return;
+    }
+    pendingMatchRef.current = pending;
     void openPath(filePath);
-  }, [openPath]);
+  }, [openPath, active?.opened.path]);
 
   /** The link text for a note, relative to the one being edited. */
   const insertWikiLink = useCallback((entry: WorkspaceIndexEntryV1, atTrigger = false) => {
@@ -1553,9 +1623,10 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
         stepTrailRef.current(1);
         break;
       case 'quick-open':
-        // Preferences is modal and would sit over it, for the same reason the
-        // command palette dismisses it.
         setPrefs((current) => ({ ...current, open: false }));
+        setPaletteOpen(false);
+        setFind({ open: false, replace: false });
+        editorRef.current?.clearSearch();
         void ensureFileIndex();
         setQuickOpen((current) => ({ open: !(current.open && current.mode === 'files'), mode: 'files' }));
         break;
@@ -1567,11 +1638,10 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
         setRail({ open: true, view: 'search' });
         break;
       case 'command-palette':
-        // Preferences is modal, so leaving it open would put its scrim over the
-        // palette and swallow every click on a command. Asking for a command to
-        // run against the document is also a statement that you are done with
-        // preferences.
         setPrefs((current) => ({ ...current, open: false }));
+        setQuickOpen((current) => ({ ...current, open: false }));
+        setFind({ open: false, replace: false });
+        editorRef.current?.clearSearch();
         setPaletteOpen((current) => !current);
         break;
       // Every block and table command runs the editor's own code, so the menu
@@ -1749,6 +1819,10 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
         editorRef.current?.history('redo');
         break;
       case 'settings':
+        setPaletteOpen(false);
+        setQuickOpen((current) => ({ ...current, open: false }));
+        setFind({ open: false, replace: false });
+        editorRef.current?.clearSearch();
         setPrefs({ open: true, section: 'appearance' });
         break;
       case 'toggle-sidebar':
@@ -1787,11 +1861,19 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
       }
       case 'find':
         setPrefs((current) => ({ ...current, open: false }));
-        setFind({ open: true, replace: false });
+        setPaletteOpen(false);
+        setQuickOpen((current) => ({ ...current, open: false }));
+        setSlash(null);
+        setFormatHud(null);
+        setFind({ open: true, replace: false, regex: false });
         break;
       case 'find-replace':
         setPrefs((current) => ({ ...current, open: false }));
-        setFind({ open: true, replace: true });
+        setPaletteOpen(false);
+        setQuickOpen((current) => ({ ...current, open: false }));
+        setSlash(null);
+        setFormatHud(null);
+        setFind({ open: true, replace: true, regex: false });
         break;
       default:
         break;
@@ -1874,6 +1956,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
               currentPath: active?.opened.path ?? null,
               onLinks: noteLinks,
               onOpen: (target) => { void openPath(target); },
+              refreshToken: linksEpoch,
             }}
             search={{
               onSearch: searchContent,
@@ -2039,6 +2122,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
             open={find.open}
             showReplace={find.replace}
             initialQuery={find.query}
+            initialRegex={find.regex}
             onSearch={(options) => {
               const { query, ...rest } = options;
               findOptionsRef.current = rest;
@@ -2102,8 +2186,8 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
                   void ensureFileIndex();
                   setQuickOpen({ open: true, mode: 'files', linking: true });
                 }}
-                onSlashQuery={setSlash}
-                onFormatHud={setFormatHud}
+                onSlashQuery={doc.document.documentId === activeId ? setSlash : undefined}
+                onFormatHud={doc.document.documentId === activeId ? setFormatHud : undefined}
                 onFollowLink={(href) => followLinkRef.current(href)}
                 onDropNote={(file) => {
                   // The renderer never names a path itself; the bridge reads
@@ -2126,12 +2210,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
                     // than from here, because the editor and the plugin
                     // snapshots arrive independently and either can be second.
                     announceEditorRef.current();
-                    // A content result was what opened this document, so show
-                    // the reader what they searched for rather than the top of
-                    // a file they now have to scan by eye.
-                    const pending = pendingMatchRef.current;
-                    pendingMatchRef.current = null;
-                    if (pending) setFind({ open: true, replace: false, query: pending });
+                    adoptPendingSurfaces(editor, doc.document.text, doc.opened.path);
                   }
                 }}
                 onTeardown={(editor) => {
@@ -2217,7 +2296,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
         onClose={() => { setPaletteOpen(false); editorRef.current?.focus(); }}
       />
 
-      {slash && !paletteOpen && !quickOpen.open && !prefs.open && (
+      {slash && !paletteOpen && !quickOpen.open && !prefs.open && !find.open && !sourceMode && (
         <SlashMenu
           query={slash.query}
           left={slash.left}
@@ -2236,7 +2315,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
         />
       )}
 
-      {formatHud && !slash && !paletteOpen && !quickOpen.open && !prefs.open && (
+      {formatHud && !slash && !paletteOpen && !quickOpen.open && !prefs.open && !find.open && !sourceMode && (
         <FormatHud
           left={formatHud.left}
           top={formatHud.top}

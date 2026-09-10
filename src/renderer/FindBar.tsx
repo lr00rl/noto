@@ -16,6 +16,8 @@ export interface FindBarProps {
   /** A query to start from, when the bar was opened by something that already
    *  knows what is being looked for. Empty means the reader will type it. */
   readonly initialQuery?: string;
+  /** When the bar was opened from a `re:` vault search, start in regex mode. */
+  readonly initialRegex?: boolean;
   /** Reports the query as it is typed, so matches highlight while typing. */
   readonly onSearch: (options: SearchOptions) => { matches: number; active: number };
   readonly onGo: (direction: 'forward' | 'backward') => { matches: number; active: number };
@@ -25,7 +27,9 @@ export interface FindBarProps {
 
 const NO_RESULTS = { matches: 0, active: -1 };
 
-export function FindBar({ open, showReplace, initialQuery, onSearch, onGo, onReplace, onClose }: FindBarProps) {
+export function FindBar({
+  open, showReplace, initialQuery, initialRegex, onSearch, onGo, onReplace, onClose,
+}: FindBarProps) {
   const [query, setQuery] = useState('');
   const [replacement, setReplacement] = useState('');
   const [caseSensitive, setCaseSensitive] = useState(false);
@@ -53,8 +57,10 @@ export function FindBar({ open, showReplace, initialQuery, onSearch, onGo, onRep
    * highlighted text, which is what it did.
    */
   useEffect(() => {
-    if (open && initialQuery) setQuery(initialQuery);
-  }, [open, initialQuery]);
+    if (!open) return;
+    if (initialQuery) setQuery(initialQuery);
+    setRegex(Boolean(initialRegex));
+  }, [open, initialQuery, initialRegex]);
 
   useEffect(() => {
     if (!open) return;

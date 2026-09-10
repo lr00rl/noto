@@ -8,7 +8,11 @@
 
 import { readFile } from 'node:fs/promises';
 import { extractLinkTargets, titleFromNote } from '../../shared/markdown/note-links';
-import { wikiCandidates, type WikiCandidate } from '../../shared/markdown/wiki-target';
+import {
+  buildWikiLookup,
+  wikiCandidatesFromLookup,
+  type WikiCandidate,
+} from '../../shared/markdown/wiki-target';
 import type { WorkspaceIndexEntryV1 } from '../../shared/workspace/v1/contracts';
 
 const CONCURRENCY = 24;
@@ -65,6 +69,7 @@ export async function buildLinkIndex(
 ): Promise<ExplicitLinkIndex> {
   const read = options.read ?? ((path: string) => readFile(path, 'utf8'));
   const candidates = entries.map(asCandidate);
+  const lookup = buildWikiLookup(candidates);
   const titles = new Map<string, string>();
   const outgoing = new Map<string, string[]>();
   const incoming = new Map<string, string[]>();
@@ -86,7 +91,7 @@ export async function buildLinkIndex(
     const seen = new Set<string>();
     const targets: string[] = [];
     for (const link of extractLinkTargets(text)) {
-      const resolved = wikiCandidates(link.target, entry.relativePath, candidates)[0];
+      const resolved = wikiCandidatesFromLookup(link.target, entry.relativePath, lookup)[0];
       if (!resolved || resolved.relativePath === entry.relativePath) continue;
       if (seen.has(resolved.relativePath)) continue;
       seen.add(resolved.relativePath);
@@ -103,6 +108,68 @@ export async function buildLinkIndex(
   }
 
   return { titles, outgoing, incoming };
+}
+
+const resolveOutgoing = (
+  text: string,
+  relativePath: string,
+  lookup: ReturnType<typeof buildWikiLookup>,
+): string[] => {
+  const seen = new Set<string>();
+  const targets: string[] = [];
+  for (const link of extractLinkTargets(text)) {
+    const resolved = wikiCandidatesFromLookup(link.target, relativePath, lookup)[0];
+    if (!resolved || resolved.relativePath === relativePath) continue;
+    if (seen.has(resolved.relativePath)) continue;
+    seen.add(resolved.relativePath);
+    targets.push(resolved.relativePath);
+  }
+  return targets;
+};
+
+/**
+ * Refresh one note's outgoing edges and repair others' incoming lists.
+ *
+ * Does not reread any file except the patched note's text. Unresolved targets
+ * are dropped, same as {@link buildLinkIndex}.
+ */
+export function patchLinkIndex(
+  index: ExplicitLinkIndex,
+  relativePath: string,
+  text: string,
+  entries: readonly WorkspaceIndexEntryV1[],
+): void {
+  const lookup = buildWikiLookup(entries.map(asCandidate));
+  const titles = index.titles as Map<string, string>;
+  const outgoing = index.outgoing as Map<string, string[]>;
+  const incoming = index.incoming as Map<string, string[]>;
+  const entry = entries.find((item) => item.relativePath === relativePath);
+  titles.set(relativePath, titleFromNote(text, entry?.name ?? relativePath));
+
+  const previous = outgoing.get(relativePath) ?? [];
+  const next = resolveOutgoing(text, relativePath, lookup);
+  outgoing.set(relativePath, next);
+
+  const kept = new Set(next);
+  for (const target of previous) {
+    if (kept.has(target)) continue;
+    const inbound = incoming.get(target);
+    if (inbound === undefined) continue;
+    incoming.set(target, inbound.filter((from) => from !== relativePath));
+  }
+
+  const had = new Set(previous);
+  for (const target of next) {
+    if (had.has(target)) continue;
+    const inbound = incoming.get(target);
+    if (inbound === undefined) {
+      incoming.set(target, [relativePath]);
+      continue;
+    }
+    if (!inbound.includes(relativePath)) {
+      incoming.set(target, [...inbound, relativePath]);
+    }
+  }
 }
 
 const toLink = (index: ExplicitLinkIndex, relativePath: string, fallbackPath: string): IndexedLink => ({

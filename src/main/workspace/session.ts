@@ -12,7 +12,10 @@
  */
 
 import { GraphCache, linksFor } from './note-graph';
-import { buildLinkIndex, neighbourhood, type ExplicitLinkIndex } from './link-index';
+import { buildLinkIndex, neighbourhood, patchLinkIndex, type ExplicitLinkIndex } from './link-index';
+import { FileEventBus, type FileEventListener } from './file-event-bus';
+import { VaultWatcher } from './vault-watcher';
+import type { FileEventV1 } from '../../shared/workspace/v1/file-events';
 import type { SearchFlags } from '../../shared/search/pattern';
 import path from 'node:path';
 import { access, cp, mkdir, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
@@ -109,6 +112,10 @@ export class WorkspaceSession {
   private folderChosen = false;
   private indexCache: { root: string; reply: WorkspaceIndexReplyV1 } | null = null;
   private linkIndexCache: { root: string; index: ExplicitLinkIndex } | null = null;
+  private linkIndexBuild: Promise<ExplicitLinkIndex | null> | null = null;
+  private linkIndexGeneration = 0;
+  private readonly fileEvents = new FileEventBus();
+  private readonly vaultWatcher = new VaultWatcher({ bus: this.fileEvents });
 
   constructor(
     private readonly createStore: () => FileTruthStoreV1,
@@ -120,7 +127,19 @@ export class WorkspaceSession {
     private readonly recentFolders?: RecentFiles,
     /** How the tree is ordered, read at each listing so a change shows at once. */
     private readonly treeSort: () => TreeSortV1 = () => 'name',
-  ) {}
+  ) {
+    this.fileEvents.subscribe((event) => this.send(WORKSPACE_CHANNELS.fileEvent, event));
+    this.fileEvents.subscribe((event) => {
+      if (event.origin !== 'disk') return;
+      if (event.kind === 'saved') {
+        this.linkIndexCache = null;
+        this.linkIndexGeneration += 1;
+        this.linkIndexBuild = null;
+        return;
+      }
+      this.invalidateIndexes();
+    });
+  }
 
   get current(): FileTruthOpenReplyV1 | null {
     return this.activePath ? this.documents.get(this.activePath)?.opened ?? null : null;
@@ -319,6 +338,8 @@ export class WorkspaceSession {
 
   /** Release every store, for shutdown. */
   closeAll(): void {
+    this.vaultWatcher.close();
+    this.fileEvents.reset();
     for (const document of this.documents.values()) document.store.close();
     this.documents.clear();
     this.activePath = null;
@@ -381,8 +402,9 @@ export class WorkspaceSession {
     this.folderRoot = root;
     this.folderChosen = chosen;
     // A new folder invalidates the old index rather than serving it stale.
-    this.indexCache = null;
-    this.linkIndexCache = null;
+    this.invalidateIndexes();
+    this.fileEvents.reset();
+    this.vaultWatcher.arm(root);
     await this.recentFolders?.remember(root);
     this.logger.log('workspace_folder_opened', {});
     const event = this.folderEvent();
@@ -522,9 +544,94 @@ export class WorkspaceSession {
     return { version: NOTO_WORKSPACE_VERSION, done: false, reason };
   }
 
-  private done(target: string): WorkspaceEntryReplyV1 {
+  private invalidateIndexes(): void {
+    this.indexCache = null;
+    this.linkIndexCache = null;
+    this.linkIndexGeneration += 1;
+    this.linkIndexBuild = null;
+  }
+
+  /**
+   * Mute disk echoes for a path and every note the index currently lists under it.
+   *
+   * A folder rename reports the directory, then the watcher reports each child.
+   * Suppressing only the directory would let those children through as deletes
+   * and creates. Call this before dropping the index.
+   */
+  private muteDescendants(root: string): void {
+    this.fileEvents.suppress(root, 2_000);
+    const entries = this.indexCache?.reply.entries;
+    if (!entries) return;
+    for (const entry of entries) {
+      if (entry.path === root || isInside(root, entry.path)) {
+        this.fileEvents.suppress(entry.path, 2_000);
+      }
+    }
+  }
+
+  private done(
+    target: string,
+    file?: { kind: 'created' | 'moved' | 'deleted'; from?: string },
+  ): WorkspaceEntryReplyV1 {
+    if (file?.kind === 'moved' && file.from) {
+      this.muteDescendants(file.from);
+      this.muteDescendants(target);
+      this.invalidateIndexes();
+      this.announceAppFile({
+        version: 1, kind: 'moved', path: target, from: file.from, origin: 'app', at: Date.now(),
+      });
+    } else if (file?.kind === 'created' || file?.kind === 'deleted') {
+      this.muteDescendants(target);
+      this.invalidateIndexes();
+      this.announceAppFile({
+        version: 1, kind: file.kind, path: target, origin: 'app', at: Date.now(),
+      });
+    } else {
+      this.invalidateIndexes();
+    }
     this.send(WORKSPACE_CHANNELS.treeChanged, { version: NOTO_WORKSPACE_VERSION });
     return { version: NOTO_WORKSPACE_VERSION, done: true, path: target };
+  }
+
+  /**
+   * Hang later automation here.
+   *
+   * The listener receives typed events. Nothing is evaluated, and a listener
+   * cannot reach past what this session already does with files. `recentFileEvents`
+   * is for a subscriber that attached after the folder was already busy.
+   */
+  onFileEvent(listener: FileEventListener): () => void {
+    return this.fileEvents.subscribe(listener);
+  }
+
+  recentFileEvents(): readonly FileEventV1[] {
+    return this.fileEvents.recent();
+  }
+
+  /**
+   * A file event this process caused, muted so the folder watcher does not
+   * report the same write a moment later as if someone else had done it.
+   */
+  private announceAppFile(event: FileEventV1): void {
+    this.muteDescendants(event.path);
+    if (event.kind === 'moved') this.muteDescendants(event.from);
+    this.fileEvents.emit(event);
+  }
+
+  /**
+   * A note was written by our own save path. The tree is unchanged, the
+   * links in this file may not be.
+   */
+  noteSaved(filePath: string, text: string): void {
+    this.announceAppFile({ version: 1, kind: 'saved', path: filePath, origin: 'app', at: Date.now() });
+    const root = this.folderRoot;
+    const cached = this.linkIndexCache;
+    if (!root || !cached || cached.root !== root) return;
+    const relative = path.relative(root, filePath).split(path.sep).join('/');
+    if (relative.startsWith('..')) return;
+    const entries = this.indexCache?.root === root ? this.indexCache.reply.entries : null;
+    if (!entries) return;
+    patchLinkIndex(cached.index, relative, text, entries);
   }
 
   private async renameEntry(real: string, typed: string | null): Promise<WorkspaceEntryReplyV1> {
@@ -548,7 +655,7 @@ export class WorkspaceSession {
     }
     await this.followMove(real, destination);
     this.logger.log('entry_renamed', { directory: isDirectory });
-    return this.done(destination);
+    return this.done(destination, { kind: 'moved', from: real });
   }
 
   /**
@@ -587,7 +694,7 @@ export class WorkspaceSession {
     }
     await this.followMove(real, target);
     this.logger.log('entry_moved', { by: 'drag' });
-    return this.done(target);
+    return this.done(target, { kind: 'moved', from: real });
   }
 
   private async moveEntry(real: string): Promise<WorkspaceEntryReplyV1> {
@@ -618,7 +725,7 @@ export class WorkspaceSession {
     }
     await this.followMove(real, target);
     this.logger.log('entry_moved', {});
-    return this.done(target);
+    return this.done(target, { kind: 'moved', from: real });
   }
 
   private async duplicateEntry(real: string): Promise<WorkspaceEntryReplyV1> {
@@ -639,7 +746,7 @@ export class WorkspaceSession {
       return this.refuse('failed');
     }
     this.logger.log('entry_duplicated', {});
-    return this.done(destination);
+    return this.done(destination, { kind: 'created' });
   }
 
   private async newFolder(real: string, typed: string | null): Promise<WorkspaceEntryReplyV1> {
@@ -659,7 +766,7 @@ export class WorkspaceSession {
       return this.refuse((cause as NodeJS.ErrnoException).code === 'EEXIST' ? 'exists' : 'failed');
     }
     this.logger.log('folder_created', {});
-    return this.done(destination);
+    return this.done(destination, { kind: 'created' });
   }
 
   /**
@@ -683,7 +790,7 @@ export class WorkspaceSession {
       if (openPath === real || isInside(real, openPath)) this.close(openPath);
     }
     this.logger.log('entry_trashed', {});
-    return this.done(real);
+    return this.done(real, { kind: 'deleted' });
   }
 
   /** Whether anything open under `real` is mid-save or holding recovery evidence. */
@@ -946,6 +1053,9 @@ export class WorkspaceSession {
       }
       await this.openPath(target);
       this.logger.log('workspace_note_created', {});
+      this.announceAppFile({ version: 1, kind: 'created', path: target, origin: 'app', at: Date.now() });
+      this.invalidateIndexes();
+      this.send(WORKSPACE_CHANNELS.treeChanged, { version: NOTO_WORKSPACE_VERSION });
       return { version: NOTO_WORKSPACE_VERSION, created: true, path: target };
     }
     throw new Error('A hundred notes here are already called Untitled.');
@@ -1019,8 +1129,7 @@ export class WorkspaceSession {
    */
   /** Tell the renderer its listing is stale, without saying what changed. */
   announceTreeChanged(): void {
-    this.indexCache = null;
-    this.linkIndexCache = null;
+    this.invalidateIndexes();
     this.send(WORKSPACE_CHANNELS.treeChanged, { version: NOTO_WORKSPACE_VERSION });
   }
 
@@ -1092,10 +1201,22 @@ export class WorkspaceSession {
   private async explicitLinkIndex(): Promise<ExplicitLinkIndex | null> {
     if (!this.folderRoot) return null;
     if (this.linkIndexCache?.root === this.folderRoot) return this.linkIndexCache.index;
-    const files = await this.fileIndex();
-    const index = await buildLinkIndex(files.entries);
-    this.linkIndexCache = { root: this.folderRoot, index };
-    return index;
+    if (this.linkIndexBuild) return this.linkIndexBuild;
+    const root = this.folderRoot;
+    const generation = this.linkIndexGeneration;
+    this.linkIndexBuild = (async () => {
+      const files = await this.fileIndex();
+      if (this.folderRoot !== root || this.linkIndexGeneration !== generation) return null;
+      const index = await buildLinkIndex(files.entries);
+      if (this.folderRoot !== root || this.linkIndexGeneration !== generation) return null;
+      this.linkIndexCache = { root, index };
+      return index;
+    })();
+    try {
+      return await this.linkIndexBuild;
+    } finally {
+      if (this.linkIndexGeneration === generation) this.linkIndexBuild = null;
+    }
   }
 
   async fileIndex(): Promise<WorkspaceIndexReplyV1> {

@@ -172,7 +172,47 @@ export const CATALOG: readonly CatalogCommand[] = [
   { id: 'tree-collapse-all', title: 'Collapse the file tree', group: 'View', keywords: 'folders' },
 
   { id: 'export-html', title: 'Export HTML', group: 'File', keywords: 'print' },
+  { id: 'export-html-plain', title: 'Export HTML without styles', group: 'File', keywords: 'print plain' },
   { id: 'export-pdf', title: 'Export PDF', group: 'File', keywords: 'print' },
+  { id: 'export-docx', title: 'Export Word', group: 'File', keywords: 'docx pandoc' },
+  { id: 'export-odt', title: 'Export OpenDocument', group: 'File', keywords: 'odt pandoc' },
+  { id: 'export-rtf', title: 'Export RTF', group: 'File', keywords: 'pandoc' },
+  { id: 'export-epub', title: 'Export EPUB', group: 'File', keywords: 'ebook pandoc' },
+  { id: 'export-latex', title: 'Export LaTeX', group: 'File', keywords: 'tex pandoc' },
+  { id: 'export-mediawiki', title: 'Export MediaWiki', group: 'File', keywords: 'wiki pandoc' },
+  { id: 'export-rst', title: 'Export reStructuredText', group: 'File', keywords: 'pandoc' },
+  { id: 'export-textile', title: 'Export Textile', group: 'File', keywords: 'pandoc' },
+  { id: 'export-opml', title: 'Export OPML', group: 'File', keywords: 'outline pandoc' },
+
+  { id: 'command-palette', title: 'Command palette', group: 'Go', keys: 'CmdOrCtrl+Shift+P', keywords: 'commands search' },
+  { id: 'line-endings-lf', title: 'Unix line endings', group: 'File', keywords: 'lf newline' },
+  { id: 'line-endings-crlf', title: 'Windows line endings', group: 'File', keywords: 'crlf newline' },
+  { id: 'toggle-final-newline', title: 'Insert final newline on save', group: 'File', keywords: 'eof trailing' },
+
+  { id: 'task-toggle', title: 'Toggle task status', group: 'Paragraph', keys: 'Control+X', keywords: 'checkbox todo' },
+  { id: 'task-complete', title: 'Mark task complete', group: 'Paragraph', keywords: 'checkbox done' },
+  { id: 'task-incomplete', title: 'Mark task incomplete', group: 'Paragraph', keywords: 'checkbox todo' },
+
+  { id: 'table-row-above', title: 'Add table row above', group: 'Insert', keywords: 'grid' },
+  { id: 'table-row-below', title: 'Add table row below', group: 'Insert', keywords: 'grid' },
+  { id: 'table-column-before', title: 'Add table column before', group: 'Insert', keywords: 'grid' },
+  { id: 'table-column-after', title: 'Add table column after', group: 'Insert', keywords: 'grid' },
+  { id: 'table-row-delete', title: 'Delete table row', group: 'Insert', keywords: 'grid' },
+  { id: 'table-column-delete', title: 'Delete table column', group: 'Insert', keywords: 'grid' },
+  { id: 'table-delete', title: 'Delete table', group: 'Insert', keywords: 'grid' },
+  { id: 'table-align-left', title: 'Align table column left', group: 'Format', keywords: 'grid' },
+  { id: 'table-align-center', title: 'Align table column center', group: 'Format', keywords: 'grid' },
+  { id: 'table-align-right', title: 'Align table column right', group: 'Format', keywords: 'grid' },
+  { id: 'table-align-none', title: 'Unalign table column', group: 'Format', keywords: 'grid' },
+  { id: 'table-prettify', title: 'Prettify table', group: 'Format', keywords: 'grid format' },
+  { id: 'table-copy', title: 'Copy table', group: 'Edit', keywords: 'grid clipboard' },
+  { id: 'move-column-left', title: 'Move table column left', group: 'Paragraph', keys: 'Alt+Shift+Left', keywords: 'grid' },
+  { id: 'move-column-right', title: 'Move table column right', group: 'Paragraph', keys: 'Alt+Shift+Right', keywords: 'grid' },
+
+  { id: 'tree-sort-name', title: 'Sort file tree by name', group: 'View', keywords: 'sidebar order' },
+  { id: 'tree-sort-name-desc', title: 'Sort file tree by name, reversed', group: 'View', keywords: 'sidebar order' },
+  { id: 'tree-sort-modified', title: 'Sort file tree by recent change', group: 'View', keywords: 'sidebar order modified' },
+  { id: 'tree-sort-modified-old', title: 'Sort file tree by oldest change', group: 'View', keywords: 'sidebar order modified' },
 ];
 
 export interface SlashItem {
@@ -190,27 +230,27 @@ export interface SlashItem {
  * on something that merely contains an h.
  */
 export const SLASH_ITEMS: readonly SlashItem[] = [
-  { id: 'block-heading-1', title: 'Heading 1', hint: '#', aliases: ['h1', 'heading', 'title'] },
-  { id: 'block-heading-2', title: 'Heading 2', hint: '##', aliases: ['h2', 'heading2'] },
-  { id: 'block-heading-3', title: 'Heading 3', hint: '###', aliases: ['h3', 'heading3'] },
-  { id: 'block-bullet-list', title: 'Bullet list', hint: '-', aliases: ['bullet', 'ul', 'list'] },
-  { id: 'block-ordered-list', title: 'Numbered list', hint: '1.', aliases: ['numbered', 'ol', 'ordered'] },
-  { id: 'table-insert', title: 'Table', hint: '|', aliases: ['table', 'grid'] },
-  { id: 'block-task-list', title: 'Task list', hint: '- [ ]', aliases: ['task', 'todo', 'checkbox'] },
-  { id: 'block-quote', title: 'Quote', hint: '>', aliases: ['quote', 'blockquote'] },
-  { id: 'block-code', title: 'Code block', hint: '```', aliases: ['code', 'fence', 'pre'] },
-  { id: 'block-math', title: 'Math block', hint: '$$', aliases: ['math', 'latex', 'equation'] },
-  { id: 'block-rule', title: 'Horizontal rule', hint: '---', aliases: ['rule', 'hr', 'divider'] },
+  { id: 'block-heading-1', title: 'Heading 1', hint: '#', aliases: ['h1', 'heading', 'title', '标题', '一级'] },
+  { id: 'block-heading-2', title: 'Heading 2', hint: '##', aliases: ['h2', 'heading2', '二级'] },
+  { id: 'block-heading-3', title: 'Heading 3', hint: '###', aliases: ['h3', 'heading3', '三级'] },
+  { id: 'block-bullet-list', title: 'Bullet list', hint: '-', aliases: ['bullet', 'ul', 'list', '列表', '无序'] },
+  { id: 'block-ordered-list', title: 'Numbered list', hint: '1.', aliases: ['numbered', 'ol', 'ordered', '有序'] },
+  { id: 'table-insert', title: 'Table', hint: '|', aliases: ['table', 'grid', '表格'] },
+  { id: 'block-task-list', title: 'Task list', hint: '- [ ]', aliases: ['task', 'todo', 'checkbox', '待办', '任务'] },
+  { id: 'block-quote', title: 'Quote', hint: '>', aliases: ['quote', 'blockquote', '引用'] },
+  { id: 'block-code', title: 'Code block', hint: '```', aliases: ['code', 'fence', 'pre', '代码'] },
+  { id: 'block-math', title: 'Math block', hint: '$$', aliases: ['math', 'latex', 'equation', '公式'] },
+  { id: 'block-rule', title: 'Horizontal rule', hint: '---', aliases: ['rule', 'hr', 'divider', '分割线'] },
   { id: 'block-alert-note', title: 'Note', hint: '[!NOTE]', aliases: ['note', 'callout', 'alert'] },
-  { id: 'block-alert-tip', title: 'Tip', hint: '[!TIP]', aliases: ['tip'] },
-  { id: 'block-alert-warning', title: 'Warning', hint: '[!WARNING]', aliases: ['warning', 'warn'] },
+  { id: 'block-alert-tip', title: 'Tip', hint: '[!TIP]', aliases: ['tip', '提示'] },
+  { id: 'block-alert-warning', title: 'Warning', hint: '[!WARNING]', aliases: ['warning', 'warn', '警告'] },
   { id: 'block-alert-important', title: 'Important', hint: '[!IMPORTANT]', aliases: ['important'] },
   { id: 'block-alert-caution', title: 'Caution', hint: '[!CAUTION]', aliases: ['caution'] },
-  { id: 'insert-image', title: 'Image', hint: '![]', aliases: ['image', 'img', 'picture', 'photo'] },
-  { id: 'insert-link', title: 'Link', hint: '[]()', aliases: ['link', 'url', 'href'] },
-  { id: 'insert-toc', title: 'Table of contents', hint: 'toc', aliases: ['toc', 'contents', 'outline'] },
+  { id: 'insert-image', title: 'Image', hint: '![]', aliases: ['image', 'img', 'picture', 'photo', '图片'] },
+  { id: 'insert-link', title: 'Link', hint: '[]()', aliases: ['link', 'url', 'href', '链接'] },
+  { id: 'insert-toc', title: 'Table of contents', hint: 'toc', aliases: ['toc', 'contents', 'outline', '目录'] },
   { id: 'insert-frontmatter', title: 'Frontmatter', hint: '---', aliases: ['frontmatter', 'yaml', 'meta'] },
-  { id: 'insert-footnote', title: 'Footnote', hint: '[^]', aliases: ['footnote', 'fn'] },
+  { id: 'insert-footnote', title: 'Footnote', hint: '[^]', aliases: ['footnote', 'fn', '脚注'] },
 ];
 
 export function rankCommands(query: string, extra: readonly PaletteRow[] = []): PaletteRow[] {
@@ -226,7 +266,9 @@ export function rankCommands(query: string, extra: readonly PaletteRow[] = []): 
   const trimmed = query.trim();
   if (trimmed.length === 0) {
     const pinned = new Set(CATALOG.filter((entry) => entry.pinned).map((entry) => entry.id));
-    return all.filter((row) => row.command !== undefined && pinned.has(row.command));
+    return all.filter((row) =>
+      row.kind === 'plugin' || (row.command !== undefined && pinned.has(row.command)),
+    );
   }
 
   const scored = all.map((row) => {

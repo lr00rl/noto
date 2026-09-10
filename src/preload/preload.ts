@@ -126,6 +126,7 @@ import type {
   WorkspaceSaveAsReplyV1,
 } from '../shared/workspace/v1/contracts';
 import { NOTO_WORKSPACE_VERSION, WORKSPACE_CHANNELS } from '../shared/workspace/v1/contracts';
+import { isFileEventV1, type FileEventV1 } from '../shared/workspace/v1/file-events';
 import {
   isWorkspaceDocumentEventV1,
   isWorkspaceMenuEventV1,
@@ -440,6 +441,8 @@ const workspaceApi: NotoWorkspaceApiV1 = Object.freeze({
         && (value as { version?: unknown }).version === NOTO_WORKSPACE_VERSION,
       () => listener(),
     ),
+  onFileEvent: (listener: (event: FileEventV1) => void) =>
+    subscribe(WORKSPACE_CHANNELS.fileEvent, isFileEventV1, listener),
   exportRendered: (request: WorkspaceExportRequestV1) => isWorkspaceExportRequestV1(request)
     ? invokeWorkspace<WorkspaceExportReplyV1>(WORKSPACE_CHANNELS.exportRendered, request, request.requestId, isWorkspaceExportResultV1)
     : Promise.resolve(rejectedWorkspace<WorkspaceExportReplyV1>('invalid', 'Invalid export request')),

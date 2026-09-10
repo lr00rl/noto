@@ -12,6 +12,7 @@
  */
 
 import type { FileTruthOpenReplyV1 } from '../../file-truth/v1/contracts';
+import { FILE_EVENT_CHANNEL, type FileEventV1 } from './file-events';
 
 export const NOTO_WORKSPACE_VERSION = 1 as const;
 
@@ -55,6 +56,8 @@ export const WORKSPACE_CHANNELS = {
   manageEntry: 'noto:v1:workspace:manage-entry',
   /** Push: something in the tree moved, so a listing on screen is stale. */
   treeChanged: 'noto:v1:workspace:tree-changed',
+  /** Push: a file was created, saved, moved, or deleted. See `FileEventV1`. */
+  fileEvent: FILE_EVENT_CHANNEL,
   /** Push: the reader chose Rename, so the row should offer a field. */
   renameRow: 'noto:v1:workspace:rename-row',
   /** The renderer hands over the drawn document so main can write or print it. */
@@ -696,5 +699,13 @@ export interface NotoWorkspaceApiV1 {
   manageEntry(request: WorkspaceEntryRequestV1): Promise<WorkspaceResultV1<WorkspaceEntryReplyV1>>;
   exportRendered(request: WorkspaceExportRequestV1): Promise<WorkspaceResultV1<WorkspaceExportReplyV1>>;
   onTreeChanged(listener: () => void): () => void;
+  /**
+   * A file in the open folder was created, saved, moved, or deleted.
+   *
+   * Built-in so later automation can subscribe. Nothing here evaluates a
+   * script; a listener only sees the event. `origin` is `app` when Noto did
+   * it and `disk` when the folder watcher saw someone else.
+   */
+  onFileEvent(listener: (event: FileEventV1) => void): () => void;
   onRenameRow(listener: (event: WorkspaceRenameRowEventV1) => void): () => void;
 }

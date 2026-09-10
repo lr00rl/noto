@@ -14,6 +14,11 @@ describe('the slash token a block is holding', () => {
     expect(slashToken('paragraph', '', 0)).toBeNull();
   });
 
+  it('says nothing when a second slash makes a path', () => {
+    expect(slashToken('paragraph', '/usr/bin', 8)).toBeNull();
+    expect(slashToken('paragraph', '/foo/bar', 8)).toBeNull();
+  });
+
   it('does not open inside a fence, a formula or a table cell', () => {
     expect(slashToken('code_block', '/table', 6)).toBeNull();
     expect(slashToken('math_block', '/table', 6)).toBeNull();

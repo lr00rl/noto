@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { outlineOf } from '../../src/renderer/outline';
+import { outlineOf, blockIndexForFragment, headingSlug } from '../../src/renderer/outline';
 
 describe('document outline', () => {
   it('lists headings with their depth and block position', () => {
@@ -34,6 +34,19 @@ describe('document outline', () => {
     // mirrors the document, so the entry appears immediately and fills in.
     expect(outlineOf('#\u0020\n')).toEqual([{ blockIndex: 0, depth: 1, text: 'Untitled heading' }]);
     expect(outlineOf('## \n')).toEqual([{ blockIndex: 0, depth: 2, text: 'Untitled heading' }]);
+  });
+
+  it('finds a heading from a fragment, the way a #link does', () => {
+    const entries = outlineOf('# Title\n\n## C# and F#\n\n### 网络规划\n');
+    expect(blockIndexForFragment(entries, 'title')).toBe(entries[0]?.blockIndex);
+    expect(blockIndexForFragment(entries, 'C%23-and-F%23')).toBe(entries[1]?.blockIndex);
+    expect(blockIndexForFragment(entries, '网络规划')).toBe(entries[2]?.blockIndex);
+    expect(blockIndexForFragment(entries, 'missing')).toBe(-1);
+  });
+
+  it('slugs a heading the way a fragment is written', () => {
+    expect(headingSlug('C# and F#')).toBe('c-and-f');
+    expect(headingSlug('网络规划')).toBe('网络规划');
   });
 
   it('returns nothing for a document without headings', () => {

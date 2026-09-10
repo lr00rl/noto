@@ -962,17 +962,20 @@
   position: absolute;
   top: 10px;
   right: 14px;
-  z-index: 20;
+  z-index: 45;
   width: fit-content;
   max-width: min(46rem, 100%);
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 8px 10px;
+  padding: 6px 8px;
   background: var(--raised);
   border: 1px solid var(--hairline);
-  border-radius: 10px;
-  box-shadow: 0 6px 20px rgb(0 0 0 / 12%);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--ink) 7%, transparent),
+    0 16px 40px -12px color-mix(in srgb, var(--ink) 36%, transparent);
 }
 
 .find-row {
@@ -990,7 +993,7 @@
   color: var(--ink);
   background: var(--paper);
   border: 1px solid var(--hairline);
-  border-radius: 6px;
+  border-radius: 4px;
 
   &:focus-visible {
     outline: 2px solid var(--focus);
@@ -1021,15 +1024,15 @@
   color: var(--muted);
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 5px;
+  border-radius: 4px;
   cursor: pointer;
 
-  &:hover { background: var(--panel); }
+  &:hover { background: var(--raised); }
 
   &.find-toggle-on {
-    color: var(--paper);
-    background: var(--accent);
-    border-color: var(--accent);
+    color: var(--ink);
+    background: var(--surface-active);
+    border-color: transparent;
   }
 }
 
@@ -1041,7 +1044,7 @@
   color: var(--ink);
   background: var(--paper);
   border: 1px solid var(--hairline);
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
 
   &:hover:not(:disabled) { background: var(--panel); }

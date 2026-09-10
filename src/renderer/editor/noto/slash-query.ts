@@ -5,7 +5,8 @@
  * the same idea for the constructs that have no short marker, or whose
  * marker is easy to forget: a table, a callout, a math block. It only
  * fires when the `/` is the first thing in the block, so a path in a
- * sentence stays a path.
+ * sentence stays a path. A second `/` in the token means a path too:
+ * `/usr/bin` is not a command, but `/table` still is.
  */
 
 const BLOCKED = new Set([
@@ -40,5 +41,7 @@ export function slashToken(parentType: string, text: string, offset: number): Sl
   const before = text.slice(0, offset);
   const match = /^\/(\S*)$/.exec(before);
   if (!match) return null;
-  return { query: match[1] ?? '', start: 0, end: offset };
+  const query = match[1] ?? '';
+  if (query.includes('/')) return null;
+  return { query, start: 0, end: offset };
 }

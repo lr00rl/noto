@@ -34,3 +34,12 @@ export function parseContentNeedles(query: string, flags: SearchFlags): ContentN
   }
   return { regex: false, needles: tokenizeQuery(trimmed) };
 }
+
+/** What the in-note find bar should look for, given the vault query that hit. */
+export function findBarFromNeedles(parsed: ContentNeedles): { query: string; regex: boolean } {
+  if (parsed.needles.length === 0) return { query: '', regex: parsed.regex };
+  if (parsed.regex) return { query: parsed.needles[0], regex: true };
+  if (parsed.needles.length === 1) return { query: parsed.needles[0], regex: false };
+  const escaped = parsed.needles.map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  return { query: escaped.join('|'), regex: true };
+}

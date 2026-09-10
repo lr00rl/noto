@@ -95,10 +95,21 @@ export function CommandPalette({
     if (row.command) onRun(row.command);
   };
 
+  const focusSelectedRow = () => {
+    const row = listRef.current?.querySelector('[data-selected="true"]');
+    if (row instanceof HTMLElement) row.focus({ preventScroll: true });
+  };
+
   const onKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'Escape') {
       event.preventDefault();
       onClose();
+      return;
+    }
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      if (event.target === inputRef.current) focusSelectedRow();
+      else inputRef.current?.focus({ preventScroll: true });
       return;
     }
     if (event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'n')) {
@@ -134,6 +145,7 @@ export function CommandPalette({
         data-selected={active ? 'true' : undefined}
         data-testid="command-row"
         className={active ? 'command-row is-current' : 'command-row'}
+        tabIndex={-1}
         onMouseEnter={() => setSelected(index)}
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => run(row)}
@@ -156,6 +168,7 @@ export function CommandPalette({
         aria-label="Commands"
         data-testid="command-palette"
         onMouseDown={(event) => event.stopPropagation()}
+        onKeyDown={onKeyDown}
       >
         <input
           ref={inputRef}
@@ -171,7 +184,6 @@ export function CommandPalette({
           aria-activedescendant={visualRows[selected] ? `command-row-${selected}` : undefined}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={onKeyDown}
         />
         <div className="command-results" id="command-palette-results" role="listbox" ref={listRef}>
           {visualRows.length === 0

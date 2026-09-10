@@ -44,7 +44,9 @@ export function SlashMenu({
   }, [left, top, bottom, items.length]);
 
   useEffect(() => {
+    if (items.length === 0) return;
     const onKey = (event: KeyboardEvent) => {
+      if (event.isComposing || event.key === 'Process') return;
       if (event.key === 'Escape') {
         event.preventDefault();
         event.stopPropagation();
@@ -54,16 +56,16 @@ export function SlashMenu({
       if (event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'n')) {
         event.preventDefault();
         event.stopPropagation();
-        setSelected((current) => (items.length === 0 ? 0 : (current + 1) % items.length));
+        setSelected((current) => (current + 1) % items.length);
         return;
       }
       if (event.key === 'ArrowUp' || (event.ctrlKey && event.key === 'p')) {
         event.preventDefault();
         event.stopPropagation();
-        setSelected((current) => (items.length === 0 ? 0 : (current - 1 + items.length) % items.length));
+        setSelected((current) => (current - 1 + items.length) % items.length);
         return;
       }
-      if (event.key === 'Enter' || event.key === 'Tab') {
+      if (event.key === 'Enter') {
         event.preventDefault();
         event.stopPropagation();
         const item = items[selected];

@@ -19,6 +19,24 @@ export interface WikiCandidate {
   readonly name: string;
 }
 
+export interface WikiLookup {
+  readonly byKey: ReadonlyMap<string, readonly WikiCandidate[]>;
+  readonly byName: ReadonlyMap<string, readonly WikiCandidate[]>;
+}
+
+/** The by-key and by-name maps wiki resolution needs, built once per vault snapshot. */
+export function buildWikiLookup(entries: readonly WikiCandidate[]): WikiLookup {
+  const byKey = new Map<string, WikiCandidate[]>();
+  const byName = new Map<string, WikiCandidate[]>();
+  for (const entry of entries) {
+    const path = key(entry.relativePath);
+    const name = key(entry.name);
+    (byKey.get(path) ?? byKey.set(path, []).get(path)!).push(entry);
+    (byName.get(name) ?? byName.set(name, []).get(name)!).push(entry);
+  }
+  return { byKey, byName };
+}
+
 /** A `/`-joined path with `.` and `..` resolved, and no leading slash. */
 export function normalisePath(value: string): string {
   const parts: string[] = [];
@@ -43,10 +61,16 @@ const key = (value: string): string => withoutExtension(normalisePath(value.repl
  * same folder as the link comes before one further away, which is what makes
  * `[[00_索引]]` mean this folder's index rather than one of the eleven others.
  */
-export function wikiCandidates(
+/**
+ * The notes a target could mean, best first, from a pre-built lookup.
+ *
+ * Same resolution order as {@link wikiCandidates}: folder the link was written
+ * in, vault root, then bare name nearest first.
+ */
+export function wikiCandidatesFromLookup(
   target: string,
   fromRelativePath: string | null,
-  entries: readonly WikiCandidate[],
+  lookup: WikiLookup,
 ): WikiCandidate[] {
   const wanted = target.split('#')[0].trim();
   if (wanted.length === 0) return [];
@@ -54,15 +78,6 @@ export function wikiCandidates(
   const fromDirectory = fromRelativePath === null
     ? ''
     : normalisePath(fromRelativePath.replace(/\\/g, '/')).split('/').slice(0, -1).join('/');
-
-  const byKey = new Map<string, WikiCandidate[]>();
-  const byName = new Map<string, WikiCandidate[]>();
-  for (const entry of entries) {
-    const path = key(entry.relativePath);
-    const name = key(entry.name);
-    (byKey.get(path) ?? byKey.set(path, []).get(path)!).push(entry);
-    (byName.get(name) ?? byName.set(name, []).get(name)!).push(entry);
-  }
 
   const beside = key(`${fromDirectory}/${wanted}`);
   const fromRoot = key(wanted);
@@ -76,14 +91,22 @@ export function wikiCandidates(
     }
   };
 
-  take(byKey.get(beside));
-  take(byKey.get(fromRoot));
+  take(lookup.byKey.get(beside));
+  take(lookup.byKey.get(fromRoot));
   // The name alone, nearest first: a note in the folder the link was written
   // in, then one in a folder above it, then the rest.
-  const named = [...(byName.get(fromRoot) ?? [])].sort((left, right) =>
+  const named = [...(lookup.byName.get(fromRoot) ?? [])].sort((left, right) =>
     closeness(right.relativePath, fromDirectory) - closeness(left.relativePath, fromDirectory));
   take(named);
   return found;
+}
+
+export function wikiCandidates(
+  target: string,
+  fromRelativePath: string | null,
+  entries: readonly WikiCandidate[],
+): WikiCandidate[] {
+  return wikiCandidatesFromLookup(target, fromRelativePath, buildWikiLookup(entries));
 }
 
 /** How many leading folders two paths share, which is how near they are. */

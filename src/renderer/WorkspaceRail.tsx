@@ -1,10 +1,11 @@
 /**
  * The navigation rail.
  *
- * One region holding two views rather than two panels. Files and Outline used to
- * open as separate columns, so asking for both spent 470 pixels of a 1280 pixel
- * window on navigation and pushed the document twice. They answer the same
- * question, "where do I go next", so they share one region and take turns.
+ * One region holding four views rather than four panels. Files and Outline used
+ * to open as separate columns, so asking for both spent 470 pixels of a 1280
+ * pixel window on navigation and pushed the document twice. Files, Outline,
+ * Links and Search answer the same question, "where do I go next", so they
+ * share one region and take turns.
  *
  * The rail owns the region and its header; the tree and the outline own only
  * their bodies.
