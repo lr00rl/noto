@@ -144,6 +144,15 @@ sending the text early buy anything. The change was reverted rather than left in
 place, since it added an IPC channel, a read-only document state and adoption
 logic for no measured gain.
 
+**The renderer open parse now runs in a Worker.** Full-document open and reload
+call `parseDocumentSpans`, which posts the wire text to a module Worker that
+runs the same `splitBlocks` path and returns serializable spans (mdast nodes
+included). The UI thread only runs `docFromSpans` and mounts the editor. This is
+deliberately not the reverted early-text preview: there is no read-only adoption
+path and no extra IPC from main. CSP allows `worker-src 'self'` for the main
+editor page only; diagram frames and the plugin sandbox keep `worker-src 'none'`.
+Paste and other small-fragment edits still call `splitBlocks` synchronously.
+
 ## What a keystroke actually costs
 
 `scripts/bench/profile-typing.mjs` splits a keypress into the part we control,

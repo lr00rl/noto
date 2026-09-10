@@ -191,9 +191,11 @@ describe('shell failure containment', () => {
 
   it('tears the editor down through the canvas rather than leaking a live view', async () => {
     const canvas = await readFile(new URL('../../src/renderer/editor/noto/NotoCanvas.tsx', import.meta.url), 'utf8');
-    expect(canvas).toContain('onTeardown(editor);');
-    expect(canvas).toContain('editor.destroy();');
-    expect(canvas.indexOf('onTeardown(editor);')).toBeLessThan(canvas.indexOf('editor.destroy();'));
+    // Open parses off-thread, so cleanup closes over the editor that actually
+    // finished mounting and tears that instance down before destroying it.
+    expect(canvas).toContain('onTeardown(current);');
+    expect(canvas).toContain('current.destroy();');
+    expect(canvas.indexOf('onTeardown(current);')).toBeLessThan(canvas.indexOf('current.destroy();'));
     // Construction failure must reach the shell instead of leaving a blank canvas.
     expect(canvas).toContain('onError(error instanceof Error ? error.message');
   });
