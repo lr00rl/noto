@@ -44,6 +44,7 @@ import { createOriginPlugin, getBlockOrigins, rebaseOrigins } from './origin-plu
 import { notoInputRules, type InputRuleOptions } from './input-rules';
 import { EDITOR_COMMANDS, insertTable, notoKeymap } from './keymap';
 import { activeNodePlugin } from './active-node-plugin';
+import { viewportLayoutPlugin } from './viewport-layout';
 import { taskClickPlugin } from './task-click';
 import { indexBlockPlugin } from './index-block';
 import { imageFromTransfer } from './image-drop';
@@ -273,6 +274,7 @@ export class NotoEditor implements NotoEditorPort {
       columnResizing(),
       tableEditing(),
       activeNodePlugin(),
+      viewportLayoutPlugin(),
       taskClickPlugin(),
       wikiLinkPlugin({ onFollow: (target) => this.options.onFollowWikiLink?.(target) }),
       indexBlockPlugin({ onFollow: (target) => this.options.onFollowWikiLink?.(target) }),

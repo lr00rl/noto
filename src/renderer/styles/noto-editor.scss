@@ -1779,12 +1779,25 @@
    a keystroke costs. Layout containment tells it the inside of a block cannot
    affect anything outside, so the work stays proportional to the block.
 
-   Deliberately `layout` only. `content-visibility` also skips rendering
-   off-screen blocks, which is faster still, but it implies style containment
-   and that stops markdown input rules from firing. Measured, tried, reverted;
-   see docs/performance/measurements.md. */
+   Off-screen blocks also skip painting via `content-visibility: auto`. Applied
+   to every top-level block that used to break markdown input rules, because
+   style containment on the block being typed into stops ProseMirror reading
+   the DOM back after a keystroke. Blocks around the selection carry
+   `noto-layout-live` (and the selection's own `noto-active-block`), which turn
+   the deferral off so input rules, find and the outline jump keep working.
+   See `viewport-layout.ts` and docs/performance/measurements.md. */
 .ProseMirror > * {
   contain: layout;
+  content-visibility: auto;
+  /* Last painted size when known, else a one-line guess so the scrollbar does
+     not collapse before the first scroll past a deferred block. */
+  contain-intrinsic-size: auto 1.6em;
+}
+
+.ProseMirror > .noto-active-block,
+.ProseMirror > .noto-layout-live {
+  content-visibility: visible;
+  contain-intrinsic-size: unset;
 }
 
 /* Typora's inline marks, and the inline HTML a note uses for them ----------
