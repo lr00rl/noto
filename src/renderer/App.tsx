@@ -9,6 +9,7 @@
 
 import { fromLf } from '../shared/markdown/v3/line-endings';
 import { PLAIN_FLAGS, type SearchFlags } from '../shared/search/pattern';
+import { parseContentNeedles } from '../shared/search/content-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type {
   FileTruthOpenReplyV1,
@@ -19,9 +20,13 @@ import type {
   NotoPlatform,
 } from '../shared/file-truth/v1/contracts';
 import type {
-  RecentFileV1, WorkspaceIndexEntryV1, WorkspaceTabV1,
+  RecentFileV1, WorkspaceIndexEntryV1, WorkspaceTabV1, WorkspaceMenuCommandV1,
 } from '../shared/workspace/v1/contracts';
 import { QuickOpen, type QuickOpenMode } from './QuickOpen';
+import { CommandPalette } from './CommandPalette';
+import { SlashMenu } from './SlashMenu';
+import { FormatHud } from './FormatHud';
+import type { SlashItem } from './command-catalog';
 import {
   pruneStore, recordOpen, searchBoost, type FrecencyStoreV1,
 } from '../shared/search/v1/frecency';
@@ -285,6 +290,13 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
   };
   const [pluginAvailability, setPluginAvailability] = useState<PluginSnapshotAvailability>('loading');
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [slash, setSlash] = useState<{
+    query: string; left: number; top: number; bottom: number;
+  } | null>(null);
+  const [formatHud, setFormatHud] = useState<{
+    left: number; top: number; bottom: number; active: readonly string[];
+  } | null>(null);
+  const dispatchMenuRef = useRef<(command: WorkspaceMenuCommandV1) => void>(() => {});
   const [recent, setRecent] = useState<readonly RecentFileV1[]>([]);
   useEffect(() => {
     setFrecency((current) => {
@@ -636,15 +648,6 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
    */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const mod = event.metaKey || event.ctrlKey;
-      if (mod && !event.shiftKey && !event.altKey && event.code === 'KeyK') {
-        event.preventDefault();
-        // Same reason as the menu path: preferences is modal, and its scrim
-        // would sit over the palette and swallow every click on a command.
-        setPrefs((current) => ({ ...current, open: false }));
-        setPaletteOpen((current) => !current);
-        return;
-      }
       const keys = manifestHotkeyFor(event);
       if (!keys) return;
       event.preventDefault();
@@ -1267,7 +1270,8 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
     // Recorded before the open, not after it. The document is adopted through
     // an event rather than through the reply, so the editor can be mounted and
     // asking for a pending query before the promise this awaits has settled.
-    pendingMatchRef.current = query;
+    const needles = parseContentNeedles(query, PLAIN_FLAGS).needles;
+    pendingMatchRef.current = needles[0] ?? query;
     void openPath(filePath);
   }, [openPath]);
 
@@ -1526,7 +1530,11 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
   }), []);
 
   useEffect(() => window.notoWorkspace.onMenuCommand((event) => {
-    switch (event.command) {
+    dispatchMenuRef.current(event.command);
+  }));
+
+  dispatchMenuRef.current = (command) => {
+    switch (command) {
       case 'save':
         void save();
         break;
@@ -1590,20 +1598,20 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
       case 'table-align-left': case 'table-align-center': case 'table-align-right': case 'table-align-none':
       case 'select-word': case 'select-line': case 'jump-to-selection':
       case 'mark-strong': case 'mark-emphasis': case 'mark-code': case 'mark-strike':
-        if (!editorRef.current?.runCommand(event.command)) {
+        if (!editorRef.current?.runCommand(command)) {
           setLocalMessage('That does not apply where the cursor is.');
         }
         break;
       case 'line-endings-lf': case 'line-endings-crlf': case 'toggle-final-newline': {
         const editor = editorRef.current;
         if (!editor) { setLocalMessage('Open a note first.'); break; }
-        const changed = event.command === 'toggle-final-newline'
+        const changed = command === 'toggle-final-newline'
           ? editor.setEnvelope({ hasFinalNewline: !editor.envelope.hasFinalNewline })
-          : editor.setEnvelope({ lineEnding: event.command === 'line-endings-lf' ? 'lf' : 'crlf' });
+          : editor.setEnvelope({ lineEnding: command === 'line-endings-lf' ? 'lf' : 'crlf' });
         // Nothing is written yet, and a reader who chose an ending and saw no
         // change at all would reasonably think the menu did nothing.
         if (changed) {
-          setLocalMessage(editor.envelope.hasFinalNewline || event.command !== 'toggle-final-newline'
+          setLocalMessage(editor.envelope.hasFinalNewline || command !== 'toggle-final-newline'
             ? 'Saved with that from now on. Save to write it.'
             : 'The file will no longer end with a newline. Save to write it.');
         }
@@ -1613,7 +1621,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
       case 'export-docx': case 'export-odt': case 'export-rtf': case 'export-epub':
       case 'export-latex': case 'export-mediawiki': case 'export-rst':
       case 'export-textile': case 'export-opml': {
-        const target = event.command.slice('export-'.length) as WorkspaceExportKindV1;
+        const target = command.slice('export-'.length) as WorkspaceExportKindV1;
         const editor = editorRef.current;
         const current = docsRef.current.get(activeIdRef.current ?? '') ?? null;
         if (!editor || !current) { setLocalMessage('Open a note first.'); break; }
@@ -1657,8 +1665,8 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
         break;
       }
       case 'copy-as-markdown': case 'copy-as-html': case 'copy-as-plain': {
-        const as = event.command === 'copy-as-html' ? 'html'
-          : event.command === 'copy-as-plain' ? 'plain' : 'markdown';
+        const as = command === 'copy-as-html' ? 'html'
+          : command === 'copy-as-plain' ? 'plain' : 'markdown';
         const copied = editorRef.current?.copySelection(as) ?? null;
         if (copied === null) {
           setLocalMessage('Select something first.');
@@ -1708,7 +1716,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
         break;
       case 'tree-sort-name': case 'tree-sort-name-desc':
       case 'tree-sort-modified': case 'tree-sort-modified-old':
-        changeSettings({ treeSort: event.command.slice('tree-sort-'.length) as TreeSortV1 });
+        changeSettings({ treeSort: command.slice('tree-sort-'.length) as TreeSortV1 });
         // The order is main's, so the tree has to ask again to see it.
         setTreeVersion((current) => current + 1);
         break;
@@ -1774,7 +1782,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
           setLocalMessage('No matches.');
           break;
         }
-        editor.goToMatch(event.command === 'find-next' ? 'forward' : 'backward');
+        editor.goToMatch(command === 'find-next' ? 'forward' : 'backward');
         break;
       }
       case 'find':
@@ -1788,7 +1796,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
       default:
         break;
     }
-  }));
+  };
 
   /**
    * Commands offered by plugins that are currently running.
@@ -2094,6 +2102,8 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
                   void ensureFileIndex();
                   setQuickOpen({ open: true, mode: 'files', linking: true });
                 }}
+                onSlashQuery={setSlash}
+                onFormatHud={setFormatHud}
                 onFollowLink={(href) => followLinkRef.current(href)}
                 onDropNote={(file) => {
                   // The renderer never names a path itself; the bridge reads
@@ -2145,11 +2155,17 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
             : state === 'Opening'
               ? <div className="opening-state">Starting…</div>
               : <section className="empty-state" data-testid="empty-state">
-                  <h1>No document open</h1>
-                  <p>Open a folder to browse its notes, or a single file to start writing.</p>
+                  <h1>{folder.root ? folder.name : 'Open a folder of notes'}</h1>
+                  <p>{folder.root
+                    ? 'A new note goes in this folder.'
+                    : 'Or a single file, if that is all you have.'}</p>
                   <div className="empty-actions">
-                    <button type="button" className="primary" data-testid="empty-open-folder"
-                      onClick={chooseFolder}>Open a folder…</button>
+                    {folder.root && (
+                      <button type="button" className="primary" data-testid="empty-new-note"
+                        onClick={() => dispatchMenuRef.current('new-file')}>New note</button>
+                    )}
+                    <button type="button" className={folder.root ? undefined : 'primary'} data-testid="empty-open-folder"
+                      onClick={chooseFolder}>{folder.root ? 'Open a different folder…' : 'Open a folder…'}</button>
                     <button type="button" data-testid="empty-open"
                       onClick={() => void openWithDialog()}>Open a document…</button>
                   </div>
@@ -2188,23 +2204,49 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
         onClose={() => { setQuickOpen((current) => ({ ...current, open: false })); editorRef.current?.focus(); }}
       />
 
-      {paletteOpen && (
-        <div className="command-palette" role="dialog" aria-modal="true" aria-label="Commands"
-          data-testid="command-palette">
-          <div className="dialog-heading">
-            <strong>Commands</strong>
-            <button type="button" onClick={() => setPaletteOpen(false)}>Close</button>
-          </div>
-          {paletteCommands.length === 0
-            ? <p className="palette-empty">No plugin commands are available. Enable a plugin to see its commands here.</p>
-            : paletteCommands.map((command) => (
-                <button key={`${command.pluginId}:${command.commandId}`} type="button" className="palette-result"
-                  onClick={() => executePluginCommand(command.pluginId, command.commandId)}>
-                  <strong>{command.title}</strong>
-                  <span>{command.source}</span>
-                </button>
-              ))}
-        </div>
+      <CommandPalette
+        open={paletteOpen}
+        mac={platform === 'darwin'}
+        plugins={paletteCommands}
+        onRun={(command) => {
+          setPaletteOpen(false);
+          if (command === 'command-palette') return;
+          queueMicrotask(() => dispatchMenuRef.current(command));
+        }}
+        onRunPlugin={executePluginCommand}
+        onClose={() => { setPaletteOpen(false); editorRef.current?.focus(); }}
+      />
+
+      {slash && !paletteOpen && !quickOpen.open && !prefs.open && (
+        <SlashMenu
+          query={slash.query}
+          left={slash.left}
+          top={slash.top}
+          bottom={slash.bottom}
+          onPick={(item: SlashItem) => {
+            setSlash(null);
+            editorRef.current?.consumeSlashQuery();
+            queueMicrotask(() => dispatchMenuRef.current(item.id));
+          }}
+          onDismiss={(removeToken) => {
+            setSlash(null);
+            if (removeToken) editorRef.current?.consumeSlashQuery();
+            editorRef.current?.focus();
+          }}
+        />
+      )}
+
+      {formatHud && !slash && !paletteOpen && !quickOpen.open && !prefs.open && (
+        <FormatHud
+          left={formatHud.left}
+          top={formatHud.top}
+          bottom={formatHud.bottom}
+          active={formatHud.active}
+          onRun={(command) => {
+            if (command === 'insert-link') setFormatHud(null);
+            dispatchMenuRef.current(command);
+          }}
+        />
       )}
 
       {alert && (

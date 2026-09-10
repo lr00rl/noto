@@ -35,6 +35,8 @@ export function shortcutGroups(mac: boolean): Group[] {
       title: 'Finding your way',
       entries: [
         { keys: [mod('P', mac), mod('.', mac)], what: 'Quick open. Tab cycles files, folders and the text inside notes.' },
+        { keys: [mac ? '⇧⌘P' : 'Ctrl+Shift+P'], what: 'Command palette. Type to find any command the menus hold.' },
+        { keys: ['/'], what: 'At the start of a block, insert a heading, a list, a table, a callout, a fence.' },
         { keys: ['Folders'], what: 'Choosing a folder narrows the other two tabs to it. Backspace on an empty box leaves it.' },
         { keys: ['type:', 'scope:'], what: 'Say what to search and where, in the box: type:content, scope:works/jobs. Tab finishes them.' },
         { keys: [mod('[', mac), mod(']', mac)], what: 'Narrow or widen quick open, which it remembers.' },

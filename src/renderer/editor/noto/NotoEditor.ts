@@ -16,6 +16,7 @@
  */
 
 import { triggerRange, wikiLinkText } from './wiki-trigger';
+import { slashToken } from './slash-query';
 import { droppedNote } from './dropped-note';
 import { tocBlockPlugin } from './toc-block';
 import { footnoteHoverPlugin } from './footnote-hover';
@@ -70,7 +71,7 @@ import {
 } from './search-plugin';
 import { syntaxHighlightPlugin } from './highlight';
 import { wikiLinkPlugin } from './wiki-link-plugin';
-import { followLinkPlugin, linkEditorPlugin } from './link-plugin';
+import { followLinkPlugin, linkEditorKey, linkEditorPlugin } from './link-plugin';
 import { countWords, type DocumentCount } from './word-count';
 import { sliceToMarkdown } from './clipboard';
 
@@ -105,6 +106,22 @@ export interface NotoEditorOptions extends Omit<InputRuleOptions, 'smartQuotes' 
   readonly onFollowWikiLink?: (target: string) => void;
   /** Two brackets were typed, which is a reader asking which note they mean. */
   readonly onWikiTrigger?: () => void;
+  /**
+   * `/` at the start of a block, which is a reader asking what to insert.
+   *
+   * Null when the caret has left that token. Coords are the slash's, so the
+   * menu can sit under it without measuring the editor from outside.
+   */
+  readonly onSlashQuery?: (surface: {
+    query: string; left: number; top: number; bottom: number;
+  } | null) => void;
+  /**
+   * A non-empty text selection, after it has settled. Null when there is
+   * nothing to format, or the caret is in a fence, or the link panel is open.
+   */
+  readonly onFormatHud?: (surface: {
+    left: number; top: number; bottom: number; active: readonly string[];
+  } | null) => void;
   /** Where relative images resolve from, and whether web images load. */
   readonly images?: ImageContext;
   readonly smartQuotes?: boolean;
@@ -296,6 +313,7 @@ export class NotoEditor implements NotoEditorPort {
   }
 
   private countTimer: ReturnType<typeof setTimeout> | null = null;
+  private hudTimer: ReturnType<typeof setTimeout> | null = null;
 
   /**
    * A paste or a drop that carries a picture.
@@ -483,6 +501,7 @@ export class NotoEditor implements NotoEditorPort {
     // moment lands where the caret was.
     this.host.dataset.caret = String(this.view?.state.selection.from ?? 0);
     this.reportActiveBlock();
+    this.reportWritingSurfaces();
     if (!transaction.docChanged) return;
     this.docVersion += 1;
     this.refreshDirty();
@@ -528,6 +547,120 @@ export class NotoEditor implements NotoEditorPort {
     if (index === this.activeBlock) return;
     this.activeBlock = index;
     this.options.onActiveBlockChanged(index);
+  }
+
+  /**
+   * Slash insert and the format HUD, reported from the same place because
+   * both are questions about the caret rather than about the document.
+   *
+   * The HUD waits a beat so a drag does not grow a toolbar under the pointer.
+   * The slash menu does not: it has to appear on the keystroke that typed `/`.
+   */
+  private reportWritingSurfaces(): void {
+    const view = this.view;
+    if (!view) return;
+    const { selection } = view.state;
+    const { $from, from, to, empty } = selection;
+
+    const token = slashToken($from.parent.type.name, $from.parent.textBetween(0, $from.parent.content.size), $from.parentOffset);
+    if (token && this.options.onSlashQuery) {
+      const coords = view.coordsAtPos($from.start() + token.start);
+      this.options.onSlashQuery({
+        query: token.query, left: coords.left, top: coords.top, bottom: coords.bottom,
+      });
+    } else {
+      this.options.onSlashQuery?.(null);
+    }
+
+    if (this.hudTimer !== null) clearTimeout(this.hudTimer);
+    const hideHud = empty
+      || token !== null
+      || $from.parent.type.spec.code === true
+      || this.isComposing
+      || linkEditorKey.getState(view.state) != null
+      || view.state.doc.textBetween(from, to).trim().length === 0;
+    if (hideHud) {
+      this.hudTimer = null;
+      this.options.onFormatHud?.(null);
+      return;
+    }
+    this.hudTimer = setTimeout(() => {
+      this.hudTimer = null;
+      if (!this.view) return;
+      if (linkEditorKey.getState(this.view.state) != null) {
+        this.options.onFormatHud?.(null);
+        return;
+      }
+      const rect = this.selectionFirstRect();
+      if (!rect) {
+        this.options.onFormatHud?.(null);
+        return;
+      }
+      this.options.onFormatHud?.({
+        left: rect.left + rect.width / 2,
+        top: rect.top,
+        bottom: rect.bottom,
+        active: this.formatHudActive(),
+      });
+    }, 120);
+  }
+
+  /**
+   * Which HUD actions already apply to the selection, so the buttons can
+   * show as on rather than as a row of identical glyphs.
+   */
+  private formatHudActive(): string[] {
+    const view = this.view;
+    if (!view) return [];
+    const { from, to } = view.state.selection;
+    const doc = view.state.doc;
+    const active: string[] = [];
+    if (doc.rangeHasMark(from, to, notoSchema.marks.strong)) active.push('mark-strong');
+    if (doc.rangeHasMark(from, to, notoSchema.marks.emphasis)) active.push('mark-emphasis');
+    if (doc.rangeHasMark(from, to, notoSchema.marks.strikethrough)) active.push('mark-strike');
+    if (doc.rangeHasMark(from, to, notoSchema.marks.inline_code)) active.push('mark-code');
+    if (doc.rangeHasMark(from, to, notoSchema.marks.link)) active.push('insert-link');
+    try {
+      const probe = view.domAtPos(Math.min(from + 1, to));
+      let node: Node | null = probe.node;
+      if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+      if (node instanceof Element && node.closest('.noto-mark-highlight')) active.push('mark-highlight');
+    } catch {
+      // A position on a node-view edge has no DOM, and a highlight is never
+      // the only reason the HUD exists.
+    }
+    return active;
+  }
+
+  private selectionFirstRect(): DOMRect | null {
+    const view = this.view;
+    if (!view) return null;
+    const native = window.getSelection();
+    if (!native || native.rangeCount === 0 || native.isCollapsed) return null;
+    if (!view.dom.contains(native.anchorNode)) return null;
+    const rects = Array.from(native.getRangeAt(0).getClientRects())
+      .filter((rect) => rect.width > 0 && rect.height > 0);
+    return rects[0] ?? native.getRangeAt(0).getBoundingClientRect();
+  }
+
+  /**
+   * Take the `/query` token out so a chosen insert replaces it rather than
+   * sitting after it. False when the caret is not in one.
+   */
+  consumeSlashQuery(): boolean {
+    const view = this.view;
+    if (!view) return false;
+    const { $from } = view.state.selection;
+    const token = slashToken(
+      $from.parent.type.name,
+      $from.parent.textBetween(0, $from.parent.content.size),
+      $from.parentOffset,
+    );
+    if (!token) return false;
+    const start = $from.start() + token.start;
+    const end = $from.start() + token.end;
+    view.dispatch(view.state.tr.delete(start, end));
+    return true;
   }
 
   private refreshDirty(): void {
@@ -1039,6 +1172,8 @@ export class NotoEditor implements NotoEditorPort {
   destroy(): void {
     if (this.countTimer !== null) clearTimeout(this.countTimer);
     this.countTimer = null;
+    if (this.hudTimer !== null) clearTimeout(this.hudTimer);
+    this.hudTimer = null;
     this.view?.destroy();
     this.view = null;
     this.pristine = new Map();

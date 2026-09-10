@@ -707,26 +707,19 @@ button:disabled { color: var(--muted); opacity: 0.7; }
 .pref-dialog {
   animation: noto-arrive var(--motion-default) var(--ease-out);
   display: grid;
-  grid-template-columns: 216px minmax(0, 1fr);
-  /* One row, bounded by the dialog's own height. Without it the body was as
-     tall as its content and the dialog merely clipped it, so the section's
-     scrolling column never had a height to scroll inside: the Plugins pane,
-     the tallest, could not be scrolled to its last card. */
+  grid-template-columns: 184px minmax(0, 1fr);
+  /* One row, bounded by the dialog's own height, so the body has something
+     to scroll inside. */
   grid-template-rows: minmax(0, 1fr);
-  /* Wider than it was, and wider than Typora's own, because the rows in here
-     are label and hint on two lines where Typora's are one line of checkbox.
-     At 720 the hints wrapped to three lines and the panel read as cramped
-     rather than as considered. */
-  width: min(1000px, 94vw);
-  /* As tall as what is in it, up to what the window can hold. A fixed height
-     left the shortest section with a void under its last control and the
-     footnote pinned to an edge it had nothing to do with, so the panel looked
-     to have been sized for some other section. */
-  height: auto;
-  max-height: min(700px, 88vh);
+  width: min(840px, 92vw);
+  /* Fixed, not content-sized. A short section used to shrink the panel and
+     a tall one used to grow it, so switching tabs made the window jump. The
+     empty space under a short pane is quieter than the jump. */
+  height: min(520px, calc(100vh - 48px));
+  max-height: calc(100vh - 48px);
   overflow: hidden;
   border: 1px solid var(--hairline);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--paper);
   box-shadow: 0 18px 48px -12px color-mix(in srgb, var(--ink) 34%, transparent);
 }
@@ -745,7 +738,7 @@ button:disabled { color: var(--muted); opacity: 0.7; }
   min-width: 0;
   border-right: 1px solid var(--hairline);
   background: var(--panel);
-  padding: 12px 10px;
+  padding: 10px 8px;
 }
 
 /* A reader who knows the name of a setting should not have to know which pane
@@ -791,7 +784,7 @@ button:disabled { color: var(--muted); opacity: 0.7; }
   opacity: 0.75;
 }
 
-.pref-section.is-current .pref-glyph { opacity: 1; color: var(--accent); }
+.pref-section.is-current .pref-glyph { opacity: 1; }
 
 .pref-section {
   display: flex;
@@ -845,7 +838,7 @@ button:disabled { color: var(--muted); opacity: 0.7; }
   justify-content: space-between;
   gap: 12px;
   border-bottom: 1px solid var(--hairline);
-  padding: 14px 18px;
+  padding: 10px 16px;
 }
 
 .pref-body-header h2 {
@@ -861,12 +854,12 @@ button:disabled { color: var(--muted); opacity: 0.7; }
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: 6px 18px 18px;
+  padding: 4px 16px 12px;
 }
 
 .pref-note {
   margin: 0;
-  padding: 4px 18px 14px;
+  padding: 4px 16px 12px;
   color: var(--muted);
   font-size: 11px;
 }
@@ -883,9 +876,9 @@ button:disabled { color: var(--muted); opacity: 0.7; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  min-height: 40px;
-  padding: 9px 0;
+  gap: 16px;
+  min-height: 34px;
+  padding: 6px 0;
 }
 
 .pref-label {
@@ -1013,7 +1006,7 @@ button:disabled { color: var(--muted); opacity: 0.7; }
  */
 .pref-cards {
   display: grid;
-  gap: 4px;
+  gap: 0;
   min-width: 0;
 }
 
@@ -1022,24 +1015,22 @@ button:disabled { color: var(--muted); opacity: 0.7; }
   grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
   gap: 9px;
-  border: 1px solid var(--hairline);
-  border-radius: 7px;
-  background: var(--panel);
-  padding: 8px 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 7px 2px;
   color: var(--ink);
   text-align: left;
   font: inherit;
   cursor: default;
-  transition: border-color 120ms ease, background 120ms ease;
 }
 
 .pref-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 34%, var(--hairline));
+  background: var(--raised);
 }
 
 .pref-card.is-on {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 7%, var(--panel));
+  background: transparent;
 }
 
 .pref-card:focus-visible {
@@ -1057,8 +1048,9 @@ button:disabled { color: var(--muted); opacity: 0.7; }
 
 .pref-card.is-on .pref-card-mark {
   /* The dot is the border growing inward, so the ring and the fill are one
-     shape and cannot land a half pixel apart at a fractional scale factor. */
-  border-color: var(--accent);
+     shape and cannot land a half pixel apart at a fractional scale factor.
+     Ink, not accent: the terracotta bar already says which section this is. */
+  border-color: var(--ink);
   border-width: 3.5px;
 }
 
@@ -1151,8 +1143,8 @@ button:disabled { color: var(--muted); opacity: 0.7; }
 }
 
 .pref-switch input:checked ~ .pref-track {
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: var(--ink);
+  background: var(--ink);
 }
 
 .pref-switch input:checked ~ .pref-track::after {
@@ -1185,25 +1177,44 @@ button:disabled { color: var(--muted); opacity: 0.7; }
 .plugin-center {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 8px;
   min-width: 0;
 }
 
 .plugin-group {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 0;
   min-width: 0;
 }
 
-/* A card each, so the eye can tell where one plugin ends and the next begins
-   without a rule between every pair. */
+/* Rows, not cards: chrome already said a plugin is a name, a sentence, and
+   an action on one line. A bordered card each made this pane look like a
+   storefront of identical tiles. */
 .plugin-center .plugin-detail {
-  border: 1px solid var(--hairline);
-  border-radius: 8px;
-  background: var(--panel);
-  padding: 14px 16px;
+  border: 0;
+  border-bottom: 1px solid var(--hairline);
+  border-radius: 0;
+  background: transparent;
+  padding: 10px 0 12px;
   min-width: 0;
+}
+
+.plugin-center .plugin-detail:last-child { border-bottom: 0; }
+
+.plugin-examples {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
+
+  > summary {
+    cursor: default;
+    color: var(--muted);
+    font-size: 12px;
+    padding: 4px 0;
+  }
+
+  > summary:hover { color: var(--ink); }
 }
 
 
@@ -1257,10 +1268,8 @@ button:disabled { color: var(--muted); opacity: 0.7; }
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-top: 4px;
-  padding: 9px 0;
-  border-top: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline);
+  margin-top: 2px;
+  padding: 4px 0 0;
 }
 
 .plugin-status {
@@ -1405,8 +1414,7 @@ button:disabled { color: var(--muted); opacity: 0.7; }
   font-size: 12px;
 }
 
-.search-field input,
-.command-palette input {
+.search-field input {
   width: 100%;
   min-width: 0;
   border: 1px solid var(--hairline);
@@ -1512,27 +1520,138 @@ button:disabled { color: var(--muted); opacity: 0.7; }
 }
 
 /* Command palette
-   ------------------------------------------------------------------------- */
+   -------------------------------------------------------------------------
+   The same overlay grammar as quick open, without the arrival animation:
+   this is opened from the keyboard all day, and a fade would make it late. */
+
+.command-scrim {
+  position: fixed;
+  z-index: 70;
+  inset: 0;
+  background: var(--scrim);
+}
 
 .command-palette {
-  animation: noto-arrive var(--motion-default) var(--ease-out);
-  position: fixed;
-  z-index: 30;
-  top: 64px;
+  position: absolute;
+  top: 12vh;
   left: 50%;
-  width: min(620px, calc(100vw - 40px));
-  max-width: 100%;
-  max-height: calc(100vh - 112px);
-  margin: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-  transform: translateX(-50%);
+  translate: -50% 0;
+  display: flex;
+  flex-direction: column;
+  width: min(560px, calc(100vw - 48px));
+  max-height: 62vh;
+  overflow: hidden;
   border: 1px solid var(--hairline);
-  border-radius: 8px;
-  background: var(--panel);
-  padding: 10px;
+  border-radius: 10px;
+  background: var(--overlay);
+  padding: 0;
   color: var(--ink);
-  box-shadow: 0 18px 48px -12px color-mix(in srgb, var(--ink) 34%, transparent);
+  box-shadow: 0 24px 64px -16px color-mix(in srgb, var(--ink) 42%, transparent);
+}
+
+.command-input {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid var(--hairline);
+  border-radius: 0;
+  background: transparent;
+  padding: 14px 16px;
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.command-input:focus-visible { outline: none; }
+.command-input::placeholder { color: var(--muted); }
+
+.command-results {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+}
+
+.command-group { margin-top: 4px; }
+
+.command-group-label {
+  margin: 6px 10px 2px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+}
+
+.command-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 32px;
+  margin: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  padding: 6px 10px 6px 12px;
+  color: var(--ink);
+  text-align: left;
+}
+
+.command-row:hover { background: var(--raised); }
+.command-row.is-current {
+  background: var(--surface-active);
+}
+
+.command-row.is-current::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+.command-row-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.command-row-source {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.command-row-keys {
+  grid-column: -1;
+  justify-self: end;
+  color: var(--muted);
+  font-family: tokens.$mono;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.command-empty {
+  margin: 16px 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.command-hint {
+  flex: 0 0 auto;
+  margin: 0;
+  border-top: 1px solid var(--hairline);
+  padding: 8px 14px;
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .dialog-heading {
@@ -1563,6 +1682,115 @@ button:disabled { color: var(--muted); opacity: 0.7; }
 }
 .palette-result span { color: var(--muted); font-size: 12px; }
 .palette-empty { color: var(--muted); font-size: 12px; }
+
+/* Slash insert
+   -------------------------------------------------------------------------
+   Sits under the `/` and does not take focus, so typing continues to filter. */
+
+.slash-menu {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 24px));
+  max-height: 280px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--overlay);
+  padding: 4px;
+  box-shadow: 0 16px 40px -12px color-mix(in srgb, var(--ink) 36%, transparent);
+}
+
+.slash-row {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 28px;
+  margin: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  padding: 5px 10px 5px 12px;
+  color: var(--ink);
+  font-size: 13px;
+  text-align: left;
+}
+
+.slash-row.is-current { background: var(--surface-active); }
+
+.slash-row.is-current::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 5px;
+  bottom: 5px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+.slash-row-hint {
+  color: var(--muted);
+  font-family: tokens.$mono;
+  font-size: 11px;
+}
+
+/* Format HUD
+   -------------------------------------------------------------------------
+   Anchored to the first line of the selection, translated up so it sits
+   above the words rather than covering them. */
+
+.format-hud {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--overlay);
+  padding: 3px;
+  box-shadow: 0 12px 32px -12px color-mix(in srgb, var(--ink) 32%, transparent);
+}
+
+.format-hud-button {
+  min-width: 28px;
+  min-height: 26px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  padding: 0 7px;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.format-hud-button:hover { background: var(--raised); }
+.format-hud-button:active { background: var(--hairline); }
+.format-hud-button.is-on {
+  background: var(--surface-active);
+  color: var(--ink-strong);
+}
+.format-hud-button.is-rule {
+  margin-left: 2px;
+  box-shadow: -1px 0 0 var(--hairline);
+}
+.format-hud-button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 1px;
+}
+
+.format-hud-button[data-testid='format-hud-mark-strong'] { font-weight: 700; }
+.format-hud-button[data-testid='format-hud-mark-emphasis'] { font-style: italic; }
+.format-hud-button[data-testid='format-hud-mark-strike'] { text-decoration: line-through; }
+.format-hud-button[data-testid='format-hud-mark-code'] { font-family: tokens.$mono; font-size: 11px; }
+.format-hud-button[data-testid='format-hud-mark-highlight'] { font-family: tokens.$mono; font-size: 11px; }
 
 /* Quick open
    -------------------------------------------------------------------------

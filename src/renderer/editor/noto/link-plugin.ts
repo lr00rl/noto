@@ -88,8 +88,22 @@ export function linkTarget(state: EditorState): LinkTarget | null {
   const inside = linkAround(state, from);
   if (inside) return inside;
   if (empty) return null;
-  if (!state.doc.resolve(from).parent.type.allowsMarkType(notoSchema.marks.link)) return null;
-  return { from, to, href: '', existing: false };
+  // Select-all, and a drag that starts or ends outside a textblock, reports
+  // positions on the document itself. A link lives on text, so the range is
+  // pulled in to the nearest text. Without that, Command-K after Command-A
+  // said the command did not apply, while the format HUD was already offering
+  // it on the same selection.
+  let markFrom = from;
+  let markTo = to;
+  if (!state.doc.resolve(from).parent.isTextblock) {
+    markFrom = TextSelection.near(state.doc.resolve(from), 1).from;
+  }
+  if (!state.doc.resolve(to).parent.isTextblock) {
+    markTo = TextSelection.near(state.doc.resolve(to), -1).to;
+  }
+  if (markFrom >= markTo) return null;
+  if (!state.doc.resolve(markFrom).parent.type.allowsMarkType(notoSchema.marks.link)) return null;
+  return { from: markFrom, to: markTo, href: '', existing: false };
 }
 
 /** Put `href` on the range, or take the link off it when `href` is empty. */
@@ -124,6 +138,11 @@ class LinkPanel {
   private target: LinkTarget | null = null;
 
   private focusFrame = 0;
+
+  private armTimer = 0;
+
+  /** Blur closes the panel only after it has actually taken focus. */
+  private closeOnBlur = false;
 
   constructor(private readonly view: EditorView) {
     this.dom = document.createElement('div');
@@ -176,18 +195,28 @@ class LinkPanel {
     this.dom.hidden = false;
     this.place(next);
     /*
-     * Focus on the next frame, not now.
+     * Focus on the next frame, and do not treat blur as dismissal until
+     * that has stuck.
      *
      * A command run from the menu focuses the editor again as soon as it
-     * returns, which happens after this runs. Taking focus here meant the
-     * field was focused and then immediately blurred, and blurring is how the
-     * panel is dismissed, so the panel opened and shut in the same tick.
+     * returns. The format HUD, which is a React overlay on the same
+     * selection, unmounts on the same transaction. Either of those will
+     * blur this field if it is already focused, and blurring is how the
+     * panel is dismissed, so without the delay the panel opened and shut
+     * in the same tick.
      */
+    this.closeOnBlur = false;
+    if (this.focusFrame) cancelAnimationFrame(this.focusFrame);
+    if (this.armTimer) window.clearTimeout(this.armTimer);
     this.focusFrame = requestAnimationFrame(() => {
       this.focusFrame = 0;
       if (!this.target) return;
       this.input.focus();
       this.input.select();
+      this.armTimer = window.setTimeout(() => {
+        this.armTimer = 0;
+        this.closeOnBlur = true;
+      }, 0);
     });
   }
 
@@ -228,12 +257,16 @@ class LinkPanel {
 
   /** Clicking away is a cancel, the same as Escape: nothing is written. */
   private readonly onBlur = (): void => {
+    if (!this.closeOnBlur) return;
     if (this.target) this.close();
   };
 
   private close(): void {
+    this.closeOnBlur = false;
     if (this.focusFrame) cancelAnimationFrame(this.focusFrame);
     this.focusFrame = 0;
+    if (this.armTimer) window.clearTimeout(this.armTimer);
+    this.armTimer = 0;
     this.target = null;
     this.dom.hidden = true;
     this.view.dispatch(this.view.state.tr.setMeta(linkEditorKey, closeMeta));
@@ -241,7 +274,9 @@ class LinkPanel {
   }
 
   destroy(): void {
+    this.closeOnBlur = false;
     if (this.focusFrame) cancelAnimationFrame(this.focusFrame);
+    if (this.armTimer) window.clearTimeout(this.armTimer);
     this.input.removeEventListener('keydown', this.onKeyDown);
     this.remove.removeEventListener('click', this.onRemove);
     this.input.removeEventListener('blur', this.onBlur);

@@ -847,7 +847,9 @@
    The second is quiet: an outline, no fill, the same height. */
 .empty-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 10px;
 }
 
