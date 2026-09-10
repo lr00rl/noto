@@ -30,6 +30,8 @@ export interface NotoCanvasProps {
   readonly markHighlight?: boolean;
   readonly markSuperscript?: boolean;
   readonly markSubscript?: boolean;
+  /** Draw `<span class="sidenote">` as numbered margin notes. */
+  readonly sidenotes?: boolean;
   /** The top level block the caret is in, when it changes. */
   readonly onActiveBlockChanged?: (index: number) => void;
   readonly onDirtyChange: (dirty: boolean) => void;
@@ -62,6 +64,7 @@ export function NotoCanvas({
   markHighlight,
   markSuperscript,
   markSubscript,
+  sidenotes,
   onActiveBlockChanged,
   onDirtyChange,
   onDocumentChanged,
@@ -160,9 +163,9 @@ export function NotoCanvas({
   useEffect(() => {
     editorRef.current?.applySettings({
       smartQuotes, smartDashes, smartEllipsis, spellCheck, remoteImages, typewriterMode, autoPair,
-      markHighlight, markSuperscript, markSubscript,
+      markHighlight, markSuperscript, markSubscript, sidenotes,
     });
-  }, [smartQuotes, smartDashes, smartEllipsis, spellCheck, remoteImages, typewriterMode, autoPair, markHighlight, markSuperscript, markSubscript]);
+  }, [smartQuotes, smartDashes, smartEllipsis, spellCheck, remoteImages, typewriterMode, autoPair, markHighlight, markSuperscript, markSubscript, sidenotes]);
 
   return <div ref={hostRef} className="noto-editor-host" data-testid="noto-editor" />;
 }

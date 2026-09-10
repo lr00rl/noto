@@ -1245,6 +1245,27 @@ the rest of the fence-enhance port is.
 With this, `fence-enhance` is complete: gutter, language, copy, indent guides,
 tab markers.
 
+## 64. A sidenote was just a span of source. Closed.
+
+The author's `sidenote` plugin turns `<span class="sidenote">…</span>` (and the
+older `marginnote` class) into a numbered Tufte margin note: a superscript in
+the prose, the note itself in a right gutter on a wide window, and an inline
+chip when the window is too narrow to spare one. Noto showed the tags as
+ordinary inline HTML source, because a tag with attributes is left alone by the
+paired-tag drawing that handles `<kbd>` and friends.
+
+A sidenote is now a decoration, the same way those tags are. The file keeps
+every character; the editor hides the tags while the caret is elsewhere, paints
+a superscript number and the note, and brings the tags back, muted, while the
+block is being edited. Wide enough windows float the note into a reserved
+gutter; narrower ones keep it as a chip. `Format > Sidenote` and `Mod+Alt+S`
+wrap the selection the way the Typora plugin does. A switch turns the drawing
+off, on by default as the author's Typora is set.
+
+Not in this slice: the Typora plugin's portal layer for sidenotes inside a
+scrolling table, and the floating "Add sidenote" chip beside a selection. The
+command and the chord cover the same act.
+
 # Where things stand
 
 ## Plugins: nine of sixteen, in some form
@@ -1253,12 +1274,13 @@ Real ports: Title Shift, Markdown Padding. Native equivalents: `wider` is the
 width modes, `tree-guides` is the connector lines and the sticky folders,
 `fuzzy-search` is quick open with content search, `note-assistant` is quick
 open's link mode with wiki-link rendering, `fence-enhance` is the fence gutter
-with its language, its copy button, its indent guides and its tab markers, and
+with its language, its copy button, its indent guides and its tab markers,
+`sidenote` is the numbered margin note for `<span class="sidenote">`, and
 `trail` is back and forward in the title bar and the Go menu, three notes each
-way. Not done: `sidenote`, `timeline`, `todo-manager`, `file-tags`,
-`code-viewer` and `drawio`; `recent-files` exists as a menu and a status strip
-rather than as the plugin's behaviour, and `remote-control` is infrastructure
-rather than a feature.
+way. Not done: `timeline`, `todo-manager`, `file-tags`, `code-viewer` and
+`drawio`; `recent-files` exists as a menu and a status strip rather than as
+the plugin's behaviour, and `remote-control` is infrastructure rather than a
+feature.
 
 ## Where Noto is ahead
 
@@ -1276,4 +1298,4 @@ behind it; done, including `<img>` inside HTML. Then the prose scale, tables
 and inline code together, since they are one stylesheet and one pass with the
 theme open beside it; done. Then line numbers and tree icons; both done. The
 remaining plugins after that, in the order the author names them;
-`fence-enhance` itself is now complete.
+`fence-enhance` itself is now complete, and `sidenote` is closed.

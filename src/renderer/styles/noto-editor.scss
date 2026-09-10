@@ -2267,3 +2267,93 @@
   [align='right'] { text-align: right; }
   center { display: block; text-align: center; }
 }
+
+
+/* Sidenotes: the author's Typora plugin as a native drawing.
+   Tags hide while the caret is elsewhere; a superscript number and the note
+   itself take their place. Wide enough windows float the note into a reserved
+   right gutter; narrower ones keep it as an inline chip. */
+.ProseMirror .noto-sidenote-num {
+  user-select: none;
+  pointer-events: none;
+  display: inline-block;
+  font-size: 0.7em;
+  vertical-align: super;
+  line-height: 0;
+  color: var(--accent);
+  font-weight: 600;
+  padding-left: 1px;
+}
+.ProseMirror .noto-sidenote-num::after {
+  content: attr(data-sidenote-index);
+}
+
+.ProseMirror .noto-sidenote {
+  font-size: 0.82em;
+  line-height: 1.45;
+  color: var(--muted);
+  vertical-align: baseline;
+}
+.ProseMirror .noto-sidenote::before {
+  content: attr(data-sidenote-index) ". ";
+  font-weight: 600;
+  color: var(--accent);
+  font-size: 0.95em;
+}
+
+/* Editing: show the tags, drop the number and the floated layout. */
+.ProseMirror .noto-sidenote-editing .noto-sidenote-num { display: none; }
+.ProseMirror .noto-sidenote-editing .noto-inline-html.noto-sidenote-tag {
+  display: inline;
+  color: var(--muted);
+  font-family: tokens.$mono;
+  font-size: 0.85em;
+  font-style: normal;
+}
+.ProseMirror .noto-sidenote-editing .noto-sidenote {
+  float: none;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: inherit;
+  color: inherit;
+}
+.ProseMirror .noto-sidenote-editing .noto-sidenote::before { content: none; }
+
+/* Margin mode when the host has room for a gutter. */
+.noto-editor-host.noto-has-sidenotes {
+  --sidenote-width: 12.5rem;
+  --sidenote-reserve: 14.5rem;
+}
+
+@media (min-width: 1100px) {
+  .noto-editor-host.noto-has-sidenotes .ProseMirror {
+    padding-right: var(--sidenote-reserve, 14.5rem);
+  }
+  .noto-editor-host.noto-has-sidenotes .ProseMirror .noto-sidenote {
+    float: right;
+    clear: right;
+    width: var(--sidenote-width, 12.5rem);
+    margin: 0.15em -14.5rem 0.6em 1.2em;
+    border-left: 2px solid var(--hairline);
+    padding-left: 0.65em;
+    background: transparent;
+  }
+}
+
+@media (max-width: 1099.98px) {
+  .ProseMirror .noto-sidenote {
+    padding: 0.1em 0.4em;
+    background: color-mix(in srgb, var(--raised) 80%, var(--accent) 8%);
+    border-radius: 4px;
+    margin: 0 2px;
+  }
+}
+
+:root[data-sidenotes='off'] .ProseMirror .noto-sidenote-num,
+:root[data-sidenotes='off'] .ProseMirror .noto-sidenote {
+  /* The plugin stops decorating when the switch is off; this is a belt. */
+  display: none;
+}

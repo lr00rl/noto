@@ -148,6 +148,13 @@ export interface NotoSettingsV1 {
   readonly markHighlight: boolean;
   readonly markSuperscript: boolean;
   readonly markSubscript: boolean;
+  /**
+   * Draw `<span class="sidenote">` as a numbered margin note.
+   *
+   * On by default, as the author's Typora `sidenote` plugin is. Off leaves
+   * the tags as ordinary inline HTML source.
+   */
+  readonly sidenotes: boolean;
   /** Which face the document is set in. See `PROSE_FACES`. */
   readonly proseFace: ProseFaceV1;
   /** Document text size in CSS pixels. */
@@ -278,6 +285,7 @@ export const DEFAULT_SETTINGS: NotoSettingsV1 = Object.freeze({
   markHighlight: true,
   markSuperscript: true,
   markSubscript: true,
+  sidenotes: true,
   fontSize: 15,
   lineHeight: 1.58,
   widthMode: 'default',
