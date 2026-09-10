@@ -151,6 +151,10 @@ function tableNode(node: Extract<RootContent, { type: 'table' }>): ProseNode {
  */
 export interface BlockHints {
   readonly fenced?: boolean;
+  /** Bullet marker taken from the source, when the block is a bullet list. */
+  readonly bullet?: '-' | '*' | '+';
+  /** Ordered delimiter taken from the source, when the block is an ordered list. */
+  readonly delimiter?: '.' | ')';
 }
 
 function blockNode(node: RootContent, hints: BlockHints = {}): ProseNode | null {
@@ -178,8 +182,15 @@ function blockNode(node: RootContent, hints: BlockHints = {}): ProseNode | null 
       return schema.nodes.horizontal_rule.create();
     case 'list':
       return node.ordered
-        ? schema.nodes.ordered_list.create({ start: node.start ?? 1, spread: node.spread ?? false }, listItems(node))
-        : schema.nodes.bullet_list.create({ spread: node.spread ?? false }, listItems(node));
+        ? schema.nodes.ordered_list.create({
+          start: node.start ?? 1,
+          spread: node.spread ?? false,
+          delimiter: hints.delimiter ?? '.',
+        }, listItems(node))
+        : schema.nodes.bullet_list.create({
+          spread: node.spread ?? false,
+          bullet: hints.bullet ?? '-',
+        }, listItems(node));
     case 'table':
       return tableNode(node);
     case 'footnoteDefinition':
@@ -217,8 +228,20 @@ export function blockFromMdast(node: RootContent, hints: BlockHints = {}): Prose
  * Convert a parsed block span, which carries the source derived facts mdast
  * drops. This is the entry point the editor uses.
  */
+/** Read the list marker the author actually wrote, which mdast drops. */
+function listHintsFromSource(markdown: string): Pick<BlockHints, 'bullet' | 'delimiter'> {
+  const bullet = markdown.match(/^[ \t]*([-*+])(?:[ \t]|\[[ xX]\])/m);
+  if (bullet) return { bullet: bullet[1] as '-' | '*' | '+' };
+  const ordered = markdown.match(/^[ \t]*\d+([.)])(?:[ \t]|\[[ xX]\])/m);
+  if (ordered) return { delimiter: ordered[1] as '.' | ')' };
+  return {};
+}
+
 export function blockFromSpan(span: BlockSpan): ProseNode {
-  return blockFromMdast(span.node, { fenced: span.kind !== 'indented-code' });
+  const listStyle = span.kind === 'bullet-list' || span.kind === 'ordered-list' || span.kind === 'task-list'
+    ? listHintsFromSource(span.markdown)
+    : {};
+  return blockFromMdast(span.node, { fenced: span.kind !== 'indented-code', ...listStyle });
 }
 
 /** Convert a whole document, preserving each block's source derived style. */

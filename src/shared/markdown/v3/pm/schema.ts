@@ -141,29 +141,46 @@ const nodes: Record<string, NodeSpec> = {
   bullet_list: {
     group: 'block',
     content: 'list_item+',
-    attrs: { spread: { default: false } },
+    /*
+     * `bullet` is the marker the source used (`-`, `*` or `+`). mdast drops it,
+     * and without it every edited list is rewritten with the dialect default.
+     */
+    attrs: { spread: { default: false }, bullet: { default: '-' } },
     // Read back as well as written, since copy and paste go through the DOM:
     // a loose list pasted without it would land tight.
-    parseDOM: [{ tag: 'ul', getAttrs: (dom) => ({ spread: (dom as HTMLElement).hasAttribute('data-spread') }) }],
+    parseDOM: [{
+      tag: 'ul',
+      getAttrs: (dom) => ({
+        spread: (dom as HTMLElement).hasAttribute('data-spread'),
+        bullet: (dom as HTMLElement).getAttribute('data-bullet') || '-',
+      }),
+    }],
     // A loose list is drawn with space inside its items and a tight one
     // without, which the stylesheet can only do if the DOM says which it is.
-    toDOM: (node) => ['ul', node.attrs.spread ? { 'data-spread': '' } : {}, 0],
+    toDOM: (node) => ['ul', {
+      ...(node.attrs.spread ? { 'data-spread': '' } : {}),
+      ...(node.attrs.bullet && node.attrs.bullet !== '-' ? { 'data-bullet': node.attrs.bullet } : {}),
+    }, 0],
   },
 
   ordered_list: {
     group: 'block',
     content: 'list_item+',
-    attrs: { start: { default: 1 }, spread: { default: false } },
+    // `delimiter` is `.` or `)`, matching the source. Default is the vault's
+    // majority form; an edited `1)` list keeps the parenthesis.
+    attrs: { start: { default: 1 }, spread: { default: false }, delimiter: { default: '.' } },
     parseDOM: [{
       tag: 'ol',
       getAttrs: (dom) => ({
         start: Number((dom as HTMLElement).getAttribute('start') ?? 1) || 1,
         spread: (dom as HTMLElement).hasAttribute('data-spread'),
+        delimiter: (dom as HTMLElement).getAttribute('data-delimiter') || '.',
       }),
     }],
     toDOM: (node) => ['ol', {
       ...(node.attrs.start === 1 ? {} : { start: node.attrs.start }),
       ...(node.attrs.spread ? { 'data-spread': '' } : {}),
+      ...(node.attrs.delimiter && node.attrs.delimiter !== '.' ? { 'data-delimiter': node.attrs.delimiter } : {}),
     }, 0],
   },
 
