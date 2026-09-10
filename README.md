@@ -82,13 +82,17 @@ build to run.
 ## Using it
 
 Open a file with `Cmd+O`, or open a folder with `Cmd+Alt+O` to get the
-workspace tree. Documents open in tabs. The rail on the left holds two views,
-the file tree and the document outline; the one control at the top left opens
-and closes it, and `Cmd+Shift+L` and `Cmd+Shift+O` open it directly on the view
-they name. `Cmd+F` finds, `Cmd+Alt+F` finds and replaces, `Cmd+K` inserts or
-edits a link, `Cmd+Shift+P` opens the command palette, and `Cmd+,` opens
-preferences, which is also where plugins are turned on. On Windows and Linux,
-read Control for Command.
+workspace tree. Documents open in tabs. The rail on the left holds four views
+that take turns in one region: the file tree, the document outline, the links
+neighbourhood, and search in notes. The control at the top left opens and
+closes it; `Cmd+Shift+L` and `Cmd+Shift+O` open it on Files and Outline, and
+`Cmd+Shift+F` opens it on search. `Cmd+F` finds in the note in front,
+`Cmd+Alt+F` finds and replaces, `Cmd+K` inserts or edits a link, `Cmd+Shift+P`
+opens the command palette, and `Cmd+,` opens preferences, which is also where
+plugins are turned on. On Windows and Linux, read Control for Command. Typing
+`/` at the start of a block opens slash insert (Enter confirms, Tab does not;
+a path such as `/usr/bin` stays a path). A `[[wiki link]]` or a Markdown link
+may carry `#heading`; following it opens the note and scrolls to that heading.
 
 The title bar carries the filename and nothing else that is not an action you
 can take right now: Save appears when there is something to save and is absent
@@ -116,10 +120,14 @@ saved bytes: `[[a note]]` is ordinary text in the file, exactly as you typed it.
 `Tab` in that box switches between names, folders, and the text inside notes.
 A content search matches every word (or `re:` for a regular expression), shows
 the lines it was found on, and opening one lands on the match with the find bar
-already carrying the query. The scan reads the folder on demand rather than
+already carrying the query: a single literal stays a literal, several words
+become an expression that finds any of them. A term that mixes Latin and CJK,
+such as `open工作`, splits into `open` and `工作`; a quoted phrase and an
+all-Chinese term stay whole. The scan reads the folder on demand rather than
 keeping an inverted index, and it does not shell out to ripgrep: the grammar
 follows rg, the binary is not a requirement. On a vault of 7,066 notes and
-82.5 MB it takes about 1.3 seconds cold.
+82.5 MB it takes about 1.3 seconds cold. A regular expression is matched per
+line with a time budget, so one huge line cannot hang the window.
 
 `Cmd+Shift+F` is the other content search, the one that stays in the rail so
 you can walk through hits without closing the list. A full scan of 7,066 notes
@@ -254,9 +262,11 @@ extensions, mapped onto a ProseMirror schema that keeps each block's original
 source alongside its rendered form. That mapping is what makes both byte-exact
 saving and per-block source mode possible from one representation.
 
-Further reading lives in `docs/`: the performance measurements, the Linux
-verification record, and a review of what the release build asks the operating
-system for.
+Further reading lives in `docs/`: the chrome constitution, file events for
+later automation, the performance measurements, the Linux verification record,
+and a review of what the release build asks the operating system for. See
+[`docs/file-events.md`](docs/file-events.md) if you want to hang work on
+create, save, move and delete without evaluating a script.
 
 ## License
 

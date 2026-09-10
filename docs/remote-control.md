@@ -50,7 +50,12 @@ English: `unauthorized`, `browser`, `host`, `no-route`, `bad-body`,
 | `/v1/open` | POST | `{"path": "..."}` | Opens that note. The path may be absolute or relative to the folder |
 | `/v1/insert` | POST | `{"text": "...", "at": "caret"}` | Puts the text in. `caret` is where you are; `end` adds it as blocks after the last one |
 | `/v1/command` | POST | `{"command": "save"}` | Runs one of the commands below |
-| `/v1/search` | POST | `{"query": "...", "caseSensitive": false, "wholeWord": false, "regex": false}` | Searches the vault, as the rail's search does |
+| `/v1/search` | POST | `{"query": "...", "caseSensitive": false, "wholeWord": false, "regex": false}` | Searches the vault, as the rail's search does. Spaces are AND, `re:` is a regular expression, and a mixed Latin and CJK term such as `open工作` splits. |
+
+There is no `/v1/file-events` route. Create, save, move and delete are an
+in-process bus; see [file-events.md](file-events.md). Hang a task there, not
+on HTTP, until the remote protocol grows a push that is worth the extra
+surface.
 
 The commands are `save`, `save-as`, `find`, `search-content`, `quick-open`,
 `source-code-mode`, `toggle-sidebar`, `toggle-outline`, `toggle-read-only`,

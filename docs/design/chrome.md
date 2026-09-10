@@ -81,23 +81,24 @@ dot. Exceptional states are not whispered here at all: they take the alert.
 
 ## Rail
 
-One region on the left, 240px, holding two views rather than two panels. The
-previous build opened Files and Outline as separate columns, so asking for both
-spent 470 pixels of a 1280 pixel window on navigation.
+One region on the left, 240px, holding four views rather than four panels.
+The previous build opened Files and Outline as separate columns, so asking for
+both spent 470 pixels of a 1280 pixel window on navigation. Links and Search
+answer the same question those two do, "where do I go next", so they take
+turns in the same region instead of opening a fifth column.
 
-The header is two words, `Files` and `Outline`, with a 1.5px rule that slides
-between them in 180ms. Not a bordered segmented control: that is a component
-out of a kit, it repeats the panel border it already sits inside, and its filled
-half becomes the second heaviest thing in the rail. The rule moves because
-moving is what says the two are one control and that you went from one to the
-other. It is positioned by a custom property the current view sets, so nothing
-is measured after paint and the first frame is never in the wrong place.
+The header is three words, `Files`, `Outline` and `Links`, with a 1.5px rule
+that slides under the current one, and a search glyph at the right that opens
+the Search view (`Cmd+Shift+F`), not quick open. Quick open stays `Cmd+P`.
+Not a bordered segmented control: that is a component out of a kit, it repeats
+the panel border it already sits inside, and its filled half becomes the
+second heaviest thing in the rail. The rule moves because moving is what says
+the views are one control and that you went from one to the other. It is
+positioned by a custom property the current view sets, so nothing is measured
+after paint and the first frame is never in the wrong place.
 
 The rail toggle in the title bar opens and closes the region; the menu items
-open it on the view they name. At the right of the two words sits a search
-glyph that opens quick open, the same one the chord opens: a vault is entered
-by search as often as by browsing, and the hand on the mouse should not have
-to reach for the keyboard to do it.
+open it on the view they name.
 
 `Cmd+]` and `Cmd+[` walk the page width through three modes, default, wide and
 full, in a ring. Each mode is a share of the canvas beside the rail with a
@@ -161,8 +162,8 @@ changes, and a folder opening elsewhere never moves the rail.
 
 The tree is set in the body serif, as Typora's sidebar is: the rail reads as
 part of the page it navigates, not as a panel from another program. Folder
-glyphs are filled shapes, files are outlines, and the two labels over the
-tree are set as Typora sets its sidebar heading, in small capitals with no
+glyphs are filled shapes, files are outlines, and the labels over the tree
+are set as Typora sets its sidebar heading, in small capitals with no
 indicator.
 
 A name that does not fit the rail is scrolled to, never cut to an ellipsis.
@@ -242,13 +243,32 @@ capability in the workspace API that reaches outside the app to "open the file
 manager at something this window is already showing you", which is small enough
 to reason about. The label follows the platform, because Finder, File Explorer
 and file manager are three names for the idea and only one of them is true on
-any given machine. Before
-this, moving between two vaults meant walking the file dialog to the same place
-every time.
+any given machine. Before this, moving between two vaults meant walking the
+file dialog to the same place every time.
 
 The tree above it no longer names the folder. The footer does, and a header
 saying the same thing above the same tree was the name twice with two ways to
 change it.
+
+## Overlays
+
+The command palette, slash menu, format HUD, find bar and quick open are one
+family of paper, not five products. Each sits on a hairline, a 1px inset
+highlight along the top edge, and an ink-tinted drop shadow. The palette and
+quick open sit on `--overlay` over a scrim. Slash and the HUD sit on
+`--overlay` without a scrim, anchored to the caret. The find bar sits on
+`--raised`, because in light `--overlay` is the same colour as the page and a
+bar that floats without a scrim has to differ from the prose it covers.
+
+The 2px terracotta spine marks the current row in a list (the command you will
+run, the slash item, the quick-open hit). It does not mark a toggle that is
+on. Find's Aa / ab / .* and the HUD's bold or italic use `--surface-active`
+only. Spending the spine on mode as well as location would make the accent
+mean two things in one region, which the constitution forbids.
+
+Only one of palette, quick open, find, slash and the HUD is up at a time.
+Dismissing one is immediate: no fade on the way out. The palette does not
+animate in either, because it is opened from the keyboard all day.
 
 ## Status line
 
@@ -326,20 +346,20 @@ resolved automatically is data loss nobody watched happen.
 ## What the chrome must never do
 
 Move the document sideways when a panel opens is unavoidable with a rail, but
-nothing else may. Panels do not float over text. Controls do not appear and
-disappear on hover except the tab close. Nothing animates on load. The accent
-never appears twice in one region.
+nothing else may. Preferences and the plugin center do not float over text.
+Find, slash and the HUD overlay the document so opening them does not push
+every line down. Controls do not appear and disappear on hover except the tab
+close. Nothing animates on load. The accent never appears twice in one region.
 
 ## The furniture, and how little of it there is
 
 Typora spends the top of its window on the file's name and nothing else. Noto
 keeps a title bar of 32px because it has a few controls that must stay
-reachable, and that is the whole of its permanent furniture. The rail has no
-footer: the folder names itself on the tree's first row, and the folder's
-actions are an ellipsis on that row, shown to the pointer and to the keyboard
-and while its own menu is open. The strip along the foot carries the recent
-notes and one line of state, and that line fades once it has been read, so
-the foot is empty at rest.
+reachable, and that is the whole of its permanent furniture. The rail's footer
+names the folder and holds the actions that operate on it, as the section
+above says. The strip along the foot of the window carries the recent notes
+and one line of state, and that line fades once it has been read, so the
+foot is empty at rest.
 
 The title bar carries the rail's ground above the rail and the page's above
 the page, so the divide between the two columns runs from the top of the

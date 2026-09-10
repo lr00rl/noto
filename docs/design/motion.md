@@ -34,12 +34,17 @@ surface, the frontmatter block opening when the caret enters it, is chrome
 around metadata rather than prose, and it is the exception that proves the
 rule. Highlight and reveal decorations change at 0ms.
 
-**Enter slowly enough to see, leave at once.** Overlays arrive with a breath
-of scale and opacity, `noto-arrive`, at the default duration; scrims fade at
-micro; the rail slides in from its own edge at slow. Nothing animates out:
-when a surface is dismissed it is gone on the same frame, because the
-interface should clear faster than it fills, and a fade on Escape reads as a
-delay.
+**Enter slowly enough to see, leave at once.** Overlays that are not the
+command palette arrive with a breath of scale and opacity, `noto-arrive`, at
+the default duration; scrims fade at micro; the rail slides in from its own
+edge at slow. The palette, slash menu, format HUD and find bar appear on the
+same frame they are asked for: they are keyboard furniture, and a fade would
+make them late. Nothing animates out: when a surface is dismissed it is gone
+on the same frame, because the interface should clear faster than it fills,
+and a fade on Escape reads as a delay.
+
+Only one of the palette, quick open, find, slash and the HUD is mounted. That
+is a render choice, not a z-index fight.
 
 **A press is felt.** Icon buttons scale to 0.96 while held and release on
 pointer-up, at micro. Text buttons only change fill. Rows in the tree and
@@ -61,12 +66,13 @@ arrivals all resolve to their final state on the first frame.
 ## Where each pattern lives
 
 - Arrival, `noto-arrive`: preferences, quick open, the
-  folder menu in the rail footer. The command palette does not animate: it is
-  opened from the keyboard all day, and a fade would make it late.
+  folder menu in the rail footer. The command palette, slash menu, format HUD
+  and find bar do not animate: they are opened from the keyboard all day, and
+  a fade would make them late.
 - Fade, `noto-fade`: the scrims behind preferences and quick open.
 - Slide from the edge, `noto-rail-in`: the rail when it opens.
 - Rise, `noto-rise`: a plugin's notice in the status line.
-- The rail's rule between Files and Outline moves by a custom property at
+- The rail's rule under the current view moves by a custom property at
   medium, so it is arithmetic rather than a measurement and its first frame
   is never in the wrong place.
 - The tree's twisty turns at default; the fence's tools fade in at micro.

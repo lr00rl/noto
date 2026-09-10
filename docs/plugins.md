@@ -185,7 +185,9 @@ build:
   and an enabled plugin is waiting, the shell raises `editor.ready` and the
   plugin activates, so a plugin enabled yesterday is running when a note
   opens today. `activation.startup` is validated and stored but nothing
-  fires it, and no other event is raised.
+  fires it. File events (`created`, `saved`, `moved`, `deleted`) are a
+  separate built-in bus, not a plugin activation event; nothing in the
+  plugin lifecycle is raised for them yet.
 - **Settings are booleans.** See above.
 - **`notice` is a status line message.** It shows in the status bar for a
   couple of seconds, attributed to the plugin in the lifecycle counters, and
@@ -206,10 +208,13 @@ features.
 
 Things that used to be Typora plugins and are now native: wider writing,
 tree guides, fuzzy search (in-process, no `fzf`/`rg` binary), wiki links,
-the Links rail's explicit backlinks, and reading note-assistant's graph
-when that file is already in the vault. Related-note ranking is still the
-plugin's data. A future plugin may shell out to ripgrep; the editor will not
-quietly require it.
+the Links rail's explicit backlinks, reading note-assistant's graph when that
+file is already in the vault, slash insert, the command palette, and a typed
+file-event bus for create, save, move and delete. Related-note ranking is
+still the plugin's data. A future plugin may shell out to ripgrep; the editor
+will not quietly require it. A future task may subscribe to file events; the
+editor will not `eval` a hook script to do it. See
+[file-events.md](file-events.md).
 
 If a behaviour needs a grant, a lease, or a declared command, it is a
 plugin. If it is how the editor opens, searches, or follows a note, it is
