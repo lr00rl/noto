@@ -98,7 +98,38 @@ test.describe('following the file when it changes underneath', () => {
       await expect(page.locator('.ProseMirror')).toContainText('Mine, not saved.');
 
       await page.getByTestId('reload-from-disk').click();
+      // Dirty reload asks first; cancelling leaves the buffer untouched.
+      await expect(page.getByTestId('reload-confirm')).toBeVisible();
+      await page.getByTestId('reload-confirm-cancel').click();
+      await expect(page.getByTestId('reload-confirm')).toHaveCount(0);
+      await expect(page.locator('.ProseMirror')).toContainText('Mine, not saved.');
+      await expect(page.locator('.ProseMirror')).not.toContainText('Theirs, on disk.');
+
+      await page.getByTestId('reload-from-disk').click();
+      await page.getByTestId('reload-confirm-reload').click();
       await expect(page.locator('.ProseMirror')).toContainText('Theirs, on disk.', { timeout: 20_000 });
+      await expect(page.locator('.ProseMirror')).not.toContainText('Mine, not saved.');
+    } finally {
+      await app.close();
+    }
+  });
+
+  test('reloads a clean note from disk without asking', async () => {
+    const { app, page, file } = await launch('reload-clean-manual');
+    try {
+      await expect(page.locator('.ProseMirror')).toContainText('The body as it was.');
+      // Turn off silent follow so the banner is what offers the reload.
+      await page.getByTestId('settings-toggle').click();
+      await page.getByTestId('pref-editor').click();
+      await page.getByTestId('setting-reload-external').uncheck();
+      await page.getByTestId('settings-close').click();
+
+      await writeFile(file, '# Shared\n\nClean reload target.\n', 'utf8');
+      await expect(page.getByTestId('file-truth-alert')).toContainText('Changed on disk', { timeout: 20_000 });
+      await page.getByTestId('reload-from-disk').click();
+      // Clean buffer: no confirm dialog.
+      await expect(page.getByTestId('reload-confirm')).toHaveCount(0);
+      await expect(page.locator('.ProseMirror')).toContainText('Clean reload target.', { timeout: 20_000 });
     } finally {
       await app.close();
     }

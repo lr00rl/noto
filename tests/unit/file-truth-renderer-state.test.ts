@@ -2,7 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import type { FileTruthSaveOutcomeV1 } from '../../src/shared/file-truth/v1/contracts';
 import { acceptedSaveOutcome, actionableFileTruthMessage, fileTruthActions, outcomeHasRecoveryEvidence,
-  presentFileTruthOutcome, savedSnapshotLeavesDirty } from '../../src/renderer/file-truth-state';
+  presentFileTruthOutcome, reloadNeedsConfirm, savedSnapshotLeavesDirty,
+} from '../../src/renderer/file-truth-state';
 import { exceptionalAlertPresentation } from '../../src/renderer/App';
 
 const base = { version: 1, attemptId: 'attempt', safeStage: 'before-temp-write', dirtyPreserved: true, message: 'message' } as const;
@@ -75,6 +76,12 @@ describe('file-truth renderer state', () => {
       .toBe('SAVE_TRANSPORT: disk denied\nRetry after restoring access.');
     expect(actionableFileTruthMessage('', 'Exact fallback')).toBe('Exact fallback');
     expect(actionableFileTruthMessage('x'.repeat(3_000), 'fallback')).toHaveLength(2_048);
+  });
+
+
+  it('asks before a dirty reload and never before a clean one', () => {
+    expect(reloadNeedsConfirm(false)).toBe(false);
+    expect(reloadNeedsConfirm(true)).toBe(true);
   });
 
   it('offers only actions valid for editor and recovery truth', () => {
@@ -200,9 +207,23 @@ describe('shell failure containment', () => {
     expect(canvas).toContain('onError(error instanceof Error ? error.message');
   });
 
+
+  it('routes a dirty reload through the confirm rather than discarding at once', async () => {
+    const app = await shell();
+    expect(app).toContain('reloadNeedsConfirm');
+    expect(app).toContain('requestReloadFromDisk');
+    expect(app).toContain('<ReloadConfirmDialog');
+    // Banner and menu both go through the ask; the silent clean path does not.
+    expect(app).toContain('requestReloadFromDisk(id)');
+    expect(app).toContain("case 'reload-from-disk':");
+    const menuCase = between(app, "case 'reload-from-disk': {", "case 'insert-image':");
+    expect(menuCase).toContain('requestReloadFromDiskRef.current(id)');
+    expect(menuCase).not.toContain('reloadFromDiskRef.current(id)');
+  });
+
   it('contains save-copy failure without reporting a clean copy', async () => {
     const app = await shell();
-    const saveCopy = between(app, 'const saveCopy = async () => {', '  const onDirtyChange =');
+    const saveCopy = between(app, 'const saveCopy = async (): Promise<boolean> => {', '  const confirmDiscard =');
     expect(saveCopy.indexOf('editor.capture()')).toBeGreaterThan(saveCopy.indexOf('try {'));
     expect(saveCopy.indexOf('await window.notoFileTruth.saveCopy')).toBeGreaterThan(saveCopy.indexOf('try {'));
     expect(saveCopy).toContain('Save a copy failed. The original is unchanged.');

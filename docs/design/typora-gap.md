@@ -922,7 +922,7 @@ not its address has to be written out in full. And counting differing lines
 positionally reports two hundred where one blank line was inserted, so the
 count is a multiset now.
 
-## 50. What happens when somebody else edits the note. Tested, and one word fixed.
+## 50. What happens when somebody else edits the note. Tested, and reload closed.
 
 A vault under version control gets written from outside all the time: a pull,
 a script, another editor. The protection was already there and had no test, so
@@ -930,14 +930,14 @@ it has one now, and it is the highest-stakes path in the product: the save is
 refused, the other change stays on disk untouched, and the reader's work stays
 in the window.
 
-The banner said "review the disk version or save a copy". Saving a copy is the
-one of those two the window offers; reviewing the disk version means leaving
-for another program. It now says what it can do.
-
-Reloading from disk is the missing action, and it is left out on purpose
-rather than by oversight: it throws away unsaved work, so it needs a
-confirmation and a way to keep the work first, and half of that is worse than
-none of it.
+The banner said "review the disk version or save a copy". Saving a copy is one
+of those two; reviewing used to mean leaving for another program. Reload from
+Disk is on the banner and the File menu now. A clean buffer takes the disk
+version at once (and can follow quietly when that setting is on). A dirty
+buffer never replaces silently: the confirm names that unsaved edits will be
+discarded, offers Reload as the danger action, Save a Copy first when that
+path already exists, and Cancel. Half of a confirm without a way to keep the
+work would still be worse than none; both halves are there.
 
 ## 51. What three independent reviews found. Four real, two already fixed, one wrong.
 

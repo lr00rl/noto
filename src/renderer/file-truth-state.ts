@@ -63,3 +63,14 @@ export function fileTruthActions(state: FileTruthUiState, editorDirty: boolean,
   }
   return actions;
 }
+
+/**
+ * Whether taking the disk version needs an explicit confirm first.
+ *
+ * A clean buffer has nothing to lose. A dirty one does, and silently replacing
+ * it is how work disappears without a trail. The banner and the File menu both
+ * route through this so neither path can skip the ask.
+ */
+export function reloadNeedsConfirm(editorDirty: boolean): boolean {
+  return editorDirty;
+}
