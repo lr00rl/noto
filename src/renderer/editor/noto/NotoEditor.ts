@@ -43,6 +43,7 @@ import type { NotoEditorPort } from './NotoEditorPort';
 import { createOriginPlugin, getBlockOrigins, rebaseOrigins } from './origin-plugin';
 import { notoInputRules, type InputRuleOptions } from './input-rules';
 import { EDITOR_COMMANDS, insertTable, notoKeymap } from './keymap';
+import { sortTasks, toggleTaskStatus, type TaskStampOptions } from './todo-manager';
 import { activeNodePlugin } from './active-node-plugin';
 import { viewportLayoutPlugin } from './viewport-layout';
 import { taskClickPlugin } from './task-click';
@@ -137,6 +138,8 @@ export class NotoEditor implements NotoEditorPort {
   private substitutions = { quotes: false, dashes: false, ellipsis: false };
   private typewriter = false;
   private autoPair = true;
+  /** Append ` ✅ YYYY-MM-DD` when a task is checked. */
+  private todoCheckTime = true;
 
   /** Which of Typora's inline marks are read; a preference, read at each scan. */
   private markKinds: TyporaMarkKinds = ALL_MARK_KINDS;
@@ -265,7 +268,11 @@ export class NotoEditor implements NotoEditorPort {
         smartDashes: () => this.substitutions.dashes,
         smartEllipsis: () => this.substitutions.ellipsis,
       }),
-      ...notoKeymap({ mac: this.options.mac, onWidthStep: (d) => this.options.onWidthStep?.(d) }),
+      ...notoKeymap({
+        mac: this.options.mac,
+        onWidthStep: (d) => this.options.onWidthStep?.(d),
+        taskStamp: this.taskStampOptions(),
+      }),
       history(),
       dropCursor({ color: 'var(--accent)' }),
       gapCursor(),
@@ -278,7 +285,8 @@ export class NotoEditor implements NotoEditorPort {
       tableEditing(),
       activeNodePlugin(),
       viewportLayoutPlugin(),
-      taskClickPlugin(),
+      taskClickPlugin(this.taskStampOptions()),
+
       wikiLinkPlugin({ onFollow: (target) => this.options.onFollowWikiLink?.(target) }),
       indexBlockPlugin({ onFollow: (target) => this.options.onFollowWikiLink?.(target) }),
       footnoteHoverPlugin(),
@@ -641,14 +649,28 @@ export class NotoEditor implements NotoEditorPort {
    */
   runCommand(name: string): boolean {
     const view = this.view;
-    const command = EDITOR_COMMANDS[name];
-    if (!view || !command) return false;
+    if (!view) return false;
     // Every editor command changes the document, so read-only refuses them all
     // rather than each one having to remember to check.
     if (this.readOnly) return false;
+    const stamp = this.taskStampOptions();
+    const command = name === 'task-toggle' ? toggleTaskStatus(undefined, stamp)
+      : name === 'task-complete' ? toggleTaskStatus(true, stamp)
+      : name === 'task-incomplete' ? toggleTaskStatus(false, stamp)
+      : name === 'sort-tasks' ? sortTasks
+      : EDITOR_COMMANDS[name];
+    if (!command) return false;
     const ran = command(view.state, view.dispatch, view);
     if (ran) view.focus();
     return ran;
+  }
+
+  /** Options the check-stamp path reads on every tick. */
+  private taskStampOptions(): TaskStampOptions {
+    return {
+      enabled: () => this.todoCheckTime,
+      now: () => new Date(),
+    };
   }
 
   toggleSourceAtSelection(): boolean {
@@ -765,9 +787,13 @@ export class NotoEditor implements NotoEditorPort {
     remoteImages?: boolean;
     typewriterMode?: boolean;
     autoPair?: boolean;
+    todoCheckTime?: boolean;
   }): void {
     if (settings.autoPair !== undefined) {
       this.autoPair = settings.autoPair;
+    }
+    if (settings.todoCheckTime !== undefined) {
+      this.todoCheckTime = settings.todoCheckTime;
     }
     if (settings.typewriterMode !== undefined) {
       this.typewriter = settings.typewriterMode;

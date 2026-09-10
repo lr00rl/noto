@@ -20,6 +20,11 @@ async function launch(name: string): Promise<{ app: ElectronApplication; page: P
   const page = await app.firstWindow();
   await page.waitForSelector('[data-testid="noto-editor"]', { state: 'visible', timeout: 30_000 });
   await page.setViewportSize({ width: 1100, height: 700 });
+  // These tests cover ticking, not the check-time stamp: leave that off so a
+  // bare `[x]` is what the file gets.
+  await page.evaluate(() => window.notoSettings.write({
+    version: 1, requestId: 'task-status-no-stamp', patch: { todoCheckTime: false },
+  }));
   return { app, page, file };
 }
 

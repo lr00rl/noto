@@ -16,6 +16,7 @@
 import { Plugin } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { notoSchema } from '../../../shared/markdown/v3/pm/schema';
+import { applyCheckStamp, type TaskStampOptions } from './todo-manager';
 
 /**
  * Whether a press at `clientX` landed on the box rather than on the words.
@@ -28,7 +29,7 @@ export function pressedTheBox(itemLeft: number, clientX: number): boolean {
   return clientX < itemLeft + 2;
 }
 
-export function taskClickPlugin(): Plugin {
+export function taskClickPlugin(stamp: TaskStampOptions = {}): Plugin {
   return new Plugin({
     props: {
       handleClickOn: (view: EditorView, _position, node, nodePosition, event) => {
@@ -42,10 +43,21 @@ export function taskClickPlugin(): Plugin {
         if (!pressedTheBox(item.getBoundingClientRect().left, (event as MouseEvent).clientX)) {
           return false;
         }
-        view.dispatch(view.state.tr.setNodeMarkup(nodePosition, undefined, {
+        const checked = !node.attrs.checked;
+        let tr = view.state.tr.setNodeMarkup(nodePosition, undefined, {
           ...node.attrs,
-          checked: !node.attrs.checked,
-        }));
+          checked,
+        });
+        if (stamp.enabled?.() ?? true) {
+          tr = applyCheckStamp(
+            tr,
+            nodePosition,
+            node,
+            checked,
+            (stamp.now ?? (() => new Date()))(),
+          );
+        }
+        view.dispatch(tr);
         return true;
       },
     },

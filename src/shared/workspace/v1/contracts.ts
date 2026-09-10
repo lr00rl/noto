@@ -219,6 +219,7 @@ export const WORKSPACE_MENU_COMMANDS = [
   'task-toggle',
   'task-complete',
   'task-incomplete',
+  'sort-tasks',
   'block-rule',
   'mark-underline',
   'mark-highlight',

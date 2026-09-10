@@ -220,6 +220,14 @@ export interface NotoSettingsV1 {
    */
   readonly autoPair: boolean;
   /**
+   * Append ` ✅ YYYY-MM-DD` when a task is checked.
+   *
+   * On by default: the author's todo-manager writes the check time into the
+   * note so a finished item stays dated without a plugin. Off leaves ticking
+   * as a bare `[x]`.
+   */
+  readonly todoCheckTime: boolean;
+  /**
    * Dim every block but the one the caret is in.
    *
    * Typora calls this focus mode. It is off by default: it is a thing you
@@ -300,6 +308,7 @@ export const DEFAULT_SETTINGS: NotoSettingsV1 = Object.freeze({
   codeIndentGuides: true,
   codeTabMarkers: true,
   autoPair: true,
+  todoCheckTime: true,
   focusMode: false,
   typewriterMode: false,
   sidebarOnLaunch: false,

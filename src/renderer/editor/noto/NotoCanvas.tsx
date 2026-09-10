@@ -27,6 +27,8 @@ export interface NotoCanvasProps {
   readonly typewriterMode?: boolean;
   /** Close a bracket or a quote as it is opened. */
   readonly autoPair?: boolean;
+  /** Append a check date when a task is ticked. */
+  readonly todoCheckTime?: boolean;
   readonly markHighlight?: boolean;
   readonly markSuperscript?: boolean;
   readonly markSubscript?: boolean;
@@ -61,6 +63,7 @@ export function NotoCanvas({
   remoteImages,
   typewriterMode,
   autoPair,
+  todoCheckTime,
   markHighlight,
   markSuperscript,
   markSubscript,
@@ -163,9 +166,10 @@ export function NotoCanvas({
   useEffect(() => {
     editorRef.current?.applySettings({
       smartQuotes, smartDashes, smartEllipsis, spellCheck, remoteImages, typewriterMode, autoPair,
+      todoCheckTime,
       markHighlight, markSuperscript, markSubscript, sidenotes,
     });
-  }, [smartQuotes, smartDashes, smartEllipsis, spellCheck, remoteImages, typewriterMode, autoPair, markHighlight, markSuperscript, markSubscript, sidenotes]);
+  }, [smartQuotes, smartDashes, smartEllipsis, spellCheck, remoteImages, typewriterMode, autoPair, todoCheckTime, markHighlight, markSuperscript, markSubscript, sidenotes]);
 
   return <div ref={hostRef} className="noto-editor-host" data-testid="noto-editor" />;
 }

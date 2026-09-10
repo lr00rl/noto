@@ -1266,6 +1266,24 @@ Not in this slice: the Typora plugin's portal layer for sidenotes inside a
 scrolling table, and the floating "Add sidenote" chip beside a selection. The
 command and the chord cover the same act.
 
+## 65. A checked task forgot when it was done. Closed.
+
+The author's `todo-manager` brief was to sort tasks and to write the check time
+into the note, and to stay friendly with no plugin at all. Noto already drew
+task boxes and flipped them; the date never landed in the file, and a list of
+mixed open and done items stayed in whatever order it was typed.
+
+Checking a task now appends ` ✅ YYYY-MM-DD` to the line — ordinary characters,
+so a note opened elsewhere still reads. Unchecking takes the stamp off again.
+`Paragraph > Task Status > Sort Tasks` floats open items above done ones, and
+orders the done ones by that date. A Preferences switch turns the stamp off for
+anyone who wants a bare `[x]`; it is on by default.
+
+Not in this slice: a kanban board across notes, and vault-wide gathering of
+every open task. The author's "最好可以支持看板" stays for a later pass; the
+hard requirement that the file stay friendly without a plugin is what this one
+does.
+
 # Where things stand
 
 ## Plugins: nine of sixteen, in some form
@@ -1275,12 +1293,12 @@ width modes, `tree-guides` is the connector lines and the sticky folders,
 `fuzzy-search` is quick open with content search, `note-assistant` is quick
 open's link mode with wiki-link rendering, `fence-enhance` is the fence gutter
 with its language, its copy button, its indent guides and its tab markers,
-`sidenote` is the numbered margin note for `<span class="sidenote">`, and
-`trail` is back and forward in the title bar and the Go menu, three notes each
-way. Not done: `timeline`, `todo-manager`, `file-tags`, `code-viewer` and
-`drawio`; `recent-files` exists as a menu and a status strip rather than as
-the plugin's behaviour, and `remote-control` is infrastructure rather than a
-feature.
+`sidenote` is the numbered margin note for `<span class="sidenote">`,
+`todo-manager` is the check date and the sort, and `trail` is back and forward
+in the title bar and the Go menu, three notes each way. Not done: `timeline`,
+`file-tags`, `code-viewer` and `drawio`; `recent-files` exists as a menu and a
+status strip rather than as the plugin's behaviour, and `remote-control` is
+infrastructure rather than a feature.
 
 ## Where Noto is ahead
 
@@ -1298,4 +1316,5 @@ behind it; done, including `<img>` inside HTML. Then the prose scale, tables
 and inline code together, since they are one stylesheet and one pass with the
 theme open beside it; done. Then line numbers and tree icons; both done. The
 remaining plugins after that, in the order the author names them;
-`fence-enhance` itself is now complete, and `sidenote` is closed.
+`fence-enhance` itself is now complete, and `sidenote` and `todo-manager` are
+closed.

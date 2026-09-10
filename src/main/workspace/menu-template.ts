@@ -318,6 +318,8 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuItemConstru
           command('Toggle Task Status', 'Control+X', 'task-toggle'),
           command('Mark as Complete', undefined, 'task-complete'),
           command('Mark as Incomplete', undefined, 'task-incomplete'),
+          { type: 'separator' },
+          command('Sort Tasks', undefined, 'sort-tasks'),
         ],
       },
       command('Horizontal Line', 'CmdOrCtrl+Alt+-', 'block-rule'),

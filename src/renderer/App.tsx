@@ -1618,7 +1618,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
       case 'table-row-delete': case 'table-column-delete': case 'table-delete':
       case 'move-up': case 'move-down':
       case 'move-column-left': case 'move-column-right':
-      case 'task-toggle': case 'task-complete': case 'task-incomplete':
+      case 'task-toggle': case 'task-complete': case 'task-incomplete': case 'sort-tasks':
       case 'insert-link': case 'clear-format':
       case 'table-prettify': case 'table-copy':
       case 'insert-footnote': case 'insert-toc':
@@ -2101,6 +2101,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
                 remoteImages={settings.remoteImages}
                 typewriterMode={settings.typewriterMode}
                 autoPair={settings.autoPair}
+                todoCheckTime={settings.todoCheckTime}
                 markHighlight={settings.markHighlight}
                 markSuperscript={settings.markSuperscript}
                 markSubscript={settings.markSubscript}
