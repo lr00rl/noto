@@ -25,9 +25,8 @@ import type {
   WorkspaceCodeViewV1,
 } from '../shared/workspace/v1/contracts';
 import { QuickOpen, type QuickOpenMode } from './QuickOpen';
-import {
-  pruneStore, recordOpen, searchBoost, type FrecencyStoreV1,
-} from '../shared/search/v1/frecency';
+import { searchBoost, type FrecencyStoreV1 } from '../shared/search/v1/frecency';
+import { ConfirmedOpenRecorder } from '../shared/search/v1/confirmed-open';
 import type { NotoDocumentWire } from '../shared/markdown/v3/contracts';
 import { outlineOf } from './outline';
 import { PLUGIN_LIFECYCLE_VERSION, type PluginLifecycleSnapshot } from '../shared/plugins/lifecycle';
@@ -342,11 +341,19 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
    */
   const [trail, setTrail] = useState<Trail>(EMPTY_TRAIL);
   const replayingRef = useRef(false);
+  /*
+   * Frecency advances only after a confirmed open, once per transition — the
+   * same contract typora-plugin-lite's ConfirmedOpenRecorder keeps. Trail
+   * replay notes the front document without bumping, so a step back is not a
+   * second open of the note being returned to.
+   */
+  const confirmedOpenRef = useRef(new ConfirmedOpenRecorder());
   const activePath = opened?.path ?? null;
   useEffect(() => {
     if (!activePath) return;
     if (replayingRef.current) {
       replayingRef.current = false;
+      confirmedOpenRef.current.noteWithoutRecording(activePath);
       return;
     }
     setTrail((current) => recordTrail(current, activePath));
@@ -400,6 +407,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
   /** A content-search query waiting for its document to arrive. */
   const pendingMatchRef = useRef<string | null>(null);
   const ensureFileIndexRef = useRef<() => Promise<void>>(async () => {});
+  const openPathRef = useRef<(filePath: string) => Promise<void>>(async () => {});
   const refreshRecentFoldersRef = useRef<() => void>(() => {});
   const [fileIndex, setFileIndex] = useState<{
     entries: readonly WorkspaceIndexEntryV1[]; truncated: boolean;
@@ -935,7 +943,9 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
   }, []);
 
   const openFromTree = useCallback((filePath: string) => {
-    void window.notoWorkspace.openPath({ version: 1, requestId: rid('tree-open'), path: filePath });
+    // Same confirmed-open path as Quick Open: frecency only advances when this
+    // succeeds, and a failed tree click does not pollute the ranking.
+    void openPathRef.current(filePath);
   }, []);
 
   const closeTab = useCallback((filePath: string) => {
@@ -1162,14 +1172,24 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
         setSourceMode(false);
         return;
       }
-      // Counted only on a successful open, so a path that does not resolve does
-      // not teach the ranking to offer it again.
-      setFrecency((current) => pruneStore(recordOpen(current, filePath, Date.now()), Date.now()));
+      // Counted only after the host confirms the open, and only once per
+      // transition: a failed open never reaches here, opening the note
+      // already in front does not bump again, and a trail step notes the
+      // front document without treating the replay as a second open.
+      if (replayingRef.current) {
+        confirmedOpenRef.current.noteWithoutRecording(filePath);
+      } else {
+        setFrecency((current) => {
+          const now = Date.now();
+          return confirmedOpenRef.current.recordAfterSuccessfulOpen(current, filePath, now).store;
+        });
+      }
     } catch (error) {
       replayingRef.current = false;
       setOpenError(actionableFileTruthMessage(error, 'That file could not be opened.'));
     }
   }, [confirmDiscard]);
+  openPathRef.current = openPath;
 
   /** One step along the trail, replayed as an open so nothing records it. */
   const stepTrail = useCallback((direction: -1 | 1) => {
