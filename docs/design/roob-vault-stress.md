@@ -55,25 +55,27 @@ Allow-dir marker census (paths only): ≈176 files with
 
 ## 3. Noto vs tpl note-assistant / RooB habits — concrete gaps
 
-Surfaces checked on current `main`: `wiki-link-plugin`, `wiki-target`,
-`QuickOpen` Alt+Enter, `RailLinks` + `note-graph` graph consumer,
-`index-block` + HTML comment quieting in `html-view`.
+Surfaces checked on current `main` (post #14 related-notes polish):
+`wiki-link-plugin`, `wiki-target` (+ `wikiTargetFor`), `QuickOpen` Alt+Enter,
+`RailLinks` + `seed-links` + `note-graph`, `index-block` (index vs related
+families) + HTML comment quieting in `html-view`.
 
 | Habit (RooB / typora-plugin-lite) | Noto today | Gap |
 |---|---|---|
-| Follow `[[target]]` / `[[target\|label]]` without rewriting bytes | Decoration in `wiki-link-plugin.ts`; Cmd/Ctrl-click | **OK** — right risk model |
+| Follow `[[target]]` / `[[target\|label]]` without rewriting bytes | Decorations in `wiki-link-plugin.ts`; Cmd/Ctrl-click | **OK** — right risk model |
 | Resolve note-relative then root then name | `wikiCandidates` in `wiki-target.ts` | **OK** for MOC `../A000/...` links |
-| Related panel from `.note-assistant/graph.json` | `note-graph.ts` + `RailLinks` (backlinks / links / related) | **Partial** — works for eligible notes; **silent miss on every `moc: true` hub** (“graph has not met this note”) |
-| Issued in-note `<!-- note-assistant:start -->` Related Notes blocks | `index-block.ts` treats **both** `index:*` and bare `note-assistant:*` marker families as one “index” widget | **Latent** — no related blocks in vault now; if apply-graph returns, Related Notes would render as an index list, not a distinct related panel |
-| Directory / MOC indexes as compact read-only UI | `index-block` widget + click `onFollow`; caret restores source | **Mostly OK** — stress MOCs are exactly this shape (100+ links) |
+| Related panel from `.note-assistant/graph.json` | `note-graph.ts` + `RailLinks`; **#14** `seed-links` fills **Links to** from in-note wiki (preferring an index region) when `graph.notes` misses a MOC | **Partial — closed for hub “Links to”**; still no graph-backed Linked from / Related on `moc: true` hubs (pipeline still omits them) |
+| Issued in-note `<!-- note-assistant:start -->` Related Notes blocks | **#14** `index-block.ts` keeps `index:*` vs bare `note-assistant:start/end` as distinct families; related draws `.noto-related` chrome | **Closed** (chrome distinct); vault still has **0** issued related blocks, so unexercised in RooB |
+| Directory / MOC indexes as compact read-only UI | `index-block` widget + click `onFollow`; caret restores source | **Mostly OK** — 100+ link MOCs are the intended shape. #17 stub scroller helps **large documents** when far-off blocks leave the viewport; it does **not** virtualize *inside* one index widget |
 | Quiet HTML comment markers | `isHtmlComment` in `html-view.ts` | **OK** |
-| Quick open → insert wiki link (Alt+Enter / `[[` trigger) | Inserts `[[basename]]` or vault-root `relativePath` when ambiguous; rarely `\|title`; **not** note-relative `wikiTargetFor` (`../…`) | **Gap** vs MOC/apply-graph link style |
+| Quick open → insert wiki link (Alt+Enter / `[[` trigger) | **#14** inserts note-relative `wikiTargetFor` targets with `\|title` when the path is not the bare name (wiki-trigger / QuickOpen) | **Closed** |
 | Rebuild graph from editor | Typora plugin rebuild shortcut | **Not in Noto** (out of scope unless productized) |
-| Tags line inside related blocks | Rail uses graph titles only | N/A while sparse blocks = 0 |
+| Tags line inside related blocks | Related chrome can show tags when present; Rail graph titles otherwise | N/A while sparse blocks = 0 |
 
-`feat/note-assistant` on this clone points at the same tip as `main`; Links /
-index / wiki work already landed via earlier merges. No duplicate
-implementation PR from this pass.
+#14 (`feat/related-notes-polish`) closed the three §5 items that were product
+gaps on this pass (MOC Links seed, distinct related chrome, Alt+Enter
+note-relative). Remaining honesty: MOC hubs still lack graph-backed Related /
+backlinks; large single index widgets are still one decoration.
 
 ## 4. Three scenarios — pass / fail / risk
 
@@ -82,14 +84,15 @@ implementation PR from this pass.
 - **Pass (narrow):** Opening an eligible content note that exists in
   `graph.notes` (e.g. the TCP-tuning sample) can populate Linked from / Links
   to / Related from the same `graph.json` Typora’s plugin reads.
-- **Fail (hub stress):** Preferred MOCs (`Z900_MOCs/代理与隧道.md`,
-  `LLM推理部署.md`, `00_Linux总览.md`) are `moc: true` → absent from
-  `graph.notes` → RailLinks reports unknown note. That is the note type Dylan
-  opens as a map.
-- **Risk:** Product ambiguity — vault pipeline *intentionally* skips MOCs for
-  block issuance; Noto still offers a Links rail with no fallback (e.g. derive
-  neighbours from the index block’s own wiki-links, or index MOCs into the
-  graph without emitting blocks).
+- **Pass (hub Links to, #14):** Preferred MOCs absent from `graph.notes` now
+  seed RailLinks **Links to** from in-note wiki targets (`seed-links`), so a
+  map note is no longer a silent “graph has not met this note” dead end for
+  outbound links.
+- **Still open:** Graph-backed Linked from / Related on `moc: true` hubs —
+  pipeline still omits those rows; Noto does not invent backlinks or related
+  scores from the index alone.
+- **Risk:** Product ambiguity remains if Dylan expects full Related parity on
+  hubs without teaching note-assistant to emit lightweight MOC graph rows.
 
 ### B. Read-only index
 
@@ -97,10 +100,10 @@ implementation PR from this pass.
   decoration/widget only; file bytes stay untouched while caret is outside;
   119-link MOC is structurally what the widget was built for; HTML comment
   markers stay quiet.
-- **Risk:** Performance/UX on very large index widgets not measured in-app
-  here. Conflating future related-blocks with index rendering (see §3).
-  False-positive `[[...]]` in code-heavy notes (vllm sample) still decorates
-  as a wiki link.
+- **Risk:** Performance/UX on very large **single** index widgets still not
+  measured in-app; #17 stub scroller does not slice inside one widget.
+  Related vs index chrome is no longer conflated (#14). False-positive
+  `[[...]]` in code-heavy notes (vllm sample) still decorates as a wiki link.
 
 ### C. Byte-for-byte unchanged
 
@@ -113,21 +116,15 @@ implementation PR from this pass.
   clean; “touch one list item inside an index region” re-enters source and
   can diverge if the author saves after an accidental edit.
 
-## 5. Recommendations (no code in this PR)
+## 5. Recommendations
 
-1. **MOC / Links UX:** When `graph.notes` misses the current path but the
-   note has an index region, seed RailLinks “Links to” from parsed index
-   wiki targets (read-only), or teach note-assistant to emit lightweight
-   MOC rows into `graph.json` without `shouldGenerateBlock`.
-2. **Keep marker families distinct:** Render `note-assistant:index:*` as
-   index UI; reserve `note-assistant:start/end` for a related-notes chrome
-   (or ignore until apply-graph is used again).
-3. **QuickOpen Alt+Enter parity:** Prefer note-relative targets
-   (`wikiTargetFor` / `relPathFromDir`) and optional `|title`, matching
-   apply-graph and hand-written MOC links — basename-only breaks once a
-   second `00_索引` exists outside the current folder’s uniqueness rule
-   (Noto already special-cases ambiguous basenames to root-relative; still
-   not note-relative).
+1. **MOC / Links UX:** **Done in #14** for outbound seed (`seed-links`).
+   Optional follow-up: teach note-assistant to emit lightweight MOC rows into
+   `graph.json` without `shouldGenerateBlock` if Linked from / Related on hubs
+   matter.
+2. **Keep marker families distinct:** **Done in #14** (`index` vs `related`
+   chrome in `index-block.ts`).
+3. **QuickOpen Alt+Enter parity:** **Done in #14** (`wikiTargetFor` + `\|title`).
 4. **Optional:** Ignore `[[digits, digits]]` / obvious non-path targets in
    the wiki decoration scanner to reduce noise in RTFS notes.
 5. **Do not** commit RooB `.note-assistant/graph.json`; rebuild locally for
