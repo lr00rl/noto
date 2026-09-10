@@ -21,6 +21,7 @@ import type {
 import type {
   RecentFileV1, WorkspaceIndexEntryV1, WorkspaceTabV1,
   WorkspaceTagSummaryV1, WorkspaceTagNoteV1,
+  WorkspaceCodeViewV1,
 } from '../shared/workspace/v1/contracts';
 import { QuickOpen, type QuickOpenMode } from './QuickOpen';
 import {
@@ -37,6 +38,7 @@ import {
 } from '../shared/plugins/proof-manifests';
 import { declaredHotkeys, matchHotkey } from './plugins/hotkeys';
 import { NotoCanvas } from './editor/noto/NotoCanvas';
+import { CodeViewer } from './CodeViewer';
 import type { DocumentCount } from './editor/noto/word-count';
 import { FindBar } from './FindBar';
 import { RecentStrip } from './RecentStrip';
@@ -189,6 +191,8 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
   const [docs, setDocs] = useState<ReadonlyMap<string, OpenDocumentState>>(new Map());
   const [activeId, setActiveId] = useState<string | null>(null);
   const [tabs, setTabs] = useState<readonly WorkspaceTabV1[]>([]);
+  /** A non-Markdown file shown read-only; null while editing a note. */
+  const [codeView, setCodeView] = useState<WorkspaceCodeViewV1 | null>(null);
   /** Status shown when no document is open, so it has nowhere per-document to live. */
   const [shellState, setShellState] = useState<UiState>('Opening');
   const activeIdRef = useRef<string | null>(null);
@@ -732,7 +736,13 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
   useEffect(() => {
     let active = true;
     const unsubscribe = window.notoWorkspace.onDocumentOpened((event) => {
-      if (active) adopt(event.opened);
+      if (active) {
+        setCodeView(null);
+        adopt(event.opened);
+      }
+    });
+    const unsubscribeCode = window.notoWorkspace.onCodeViewChanged((event) => {
+      if (active) setCodeView(event.codeView);
     });
     /*
      * The file behind a document moved under it.
@@ -851,6 +861,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
     return () => {
       active = false;
       unsubscribe();
+      unsubscribeCode();
       unsubscribeExternal();
       unsubscribeTree();
       unsubscribeRename();
@@ -1128,6 +1139,10 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
         replayingRef.current = false;
         setTrail((current) => forgetTrail(current, filePath));
         setOpenError(actionableFileTruthMessage(result.error.message, 'That file could not be opened.'));
+        return;
+      }
+      if ('codeView' in result.value) {
+        setCodeView(result.value.codeView);
         return;
       }
       // Counted only on a successful open, so a path that does not resolve does
@@ -1468,6 +1483,14 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
   >(null);
   /** Bumped whenever something in the tree moved, so listings are read again. */
   const [treeVersion, setTreeVersion] = useState(0);
+
+  // Turning the viewer off dismisses a code file and refreshes the tree so
+  // non-Markdown rows disappear again.
+  useEffect(() => {
+    if (!settings.codeViewer) setCodeView(null);
+    setTreeVersion((current) => current + 1);
+  }, [settings.codeViewer]);
+
   /** Bumped to shut every folder in the tree, which the tree watches for. */
   const [treeCollapse, setTreeCollapse] = useState(0);
 
@@ -1996,7 +2019,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
               ),
               root: folder.root,
               rootName: folder.name,
-              activePath: opened?.path ?? null,
+              activePath: codeView?.path ?? opened?.path ?? null,
               list: listFolder,
               onOpenFile: openFromTree,
               onRowMenu: showTreeMenu,
@@ -2144,6 +2167,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
         )}
 
         <main id="document-canvas" className="canvas-scroll" tabIndex={-1} aria-label="Document canvas">
+          {codeView ? <CodeViewer view={codeView} /> : null}
           {/* Every open document keeps its editor mounted, with only the
               active one visible. Unmounting the others would destroy their
               undo history, selection and scroll position, so returning to a
@@ -2152,8 +2176,8 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
             <div
               key={doc.document.documentId}
               className="canvas-slot"
-              hidden={doc.document.documentId !== activeId}
-              aria-hidden={doc.document.documentId !== activeId}
+              hidden={codeView !== null || doc.document.documentId !== activeId}
+              aria-hidden={codeView !== null || doc.document.documentId !== activeId}
             >
               {sourceMode && doc.document.documentId === activeId && editorsRef.current.get(doc.document.documentId) && (
                 <SourceModeView
@@ -2247,7 +2271,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
               </div>
             </div>
           ))}
-          {document
+          {document || codeView
             ? null
             : state === 'Opening'
               ? <div className="opening-state">Starting…</div>

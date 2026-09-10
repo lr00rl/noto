@@ -15,7 +15,7 @@ import { GraphCache, linksFor } from './note-graph';
 import { buildTagIndex, notesForTag, type TagIndex } from './tag-index';
 import type { SearchFlags } from '../../shared/search/pattern';
 import path from 'node:path';
-import { access, cp, mkdir, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { access, cp, mkdir, readFile, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { BrowserWindow, Menu, clipboard, dialog, shell, type MenuItemConstructorOptions } from 'electron';
@@ -32,6 +32,8 @@ import {
   type WorkspaceLinksReplyV1,
   type WorkspaceTagIndexReplyV1,
   type WorkspaceNotesByTagReplyV1,
+  type WorkspaceCodeViewV1,
+  type WorkspaceOpenReplyV1,
 } from '../../shared/workspace/v1/contracts';
 import type {
   WorkspaceEntryActionV1,
@@ -45,6 +47,9 @@ import type { StructuredLogger } from '../logger';
 import type { FileTruthStoreV1 } from '../file-truth/v1/file-truth-store';
 import type { RecentFiles } from './recent-files';
 import { isEditableFile, listDirectory, type FileTreeEntryV1, isInside, type TreeSortV1 } from './file-tree';
+import { languageFor, isViewableCodeFile } from '../../shared/code-viewer/languages';
+import { isProbablyBinary } from '../../shared/code-viewer/binary';
+import { CODE_VIEW_MAX_BYTES, CODE_VIEW_MAX_LINES } from '../../shared/code-viewer/limits';
 import { standaloneHtml } from '../../shared/export/document-html';
 import { inlineImages, readFileBytes } from './inline-images';
 import { buildTreeRowMenu, trashLabel } from './tree-row-menu';
@@ -92,6 +97,8 @@ export class WorkspaceSession {
      machine's time being monotonic or even correct. */
   private activations = 0;
   private activePath: string | null = null;
+  /** Path shown in the read-only code viewer, when one is open. */
+  private codeViewPath: string | null = null;
   /** The folder shown in the sidebar, and the boundary for every listing. */
   private folderRoot: string | null = null;
 
@@ -122,6 +129,8 @@ export class WorkspaceSession {
     private readonly recentFolders?: RecentFiles,
     /** How the tree is ordered, read at each listing so a change shows at once. */
     private readonly treeSort: () => TreeSortV1 = () => 'name',
+    /** Whether non-Markdown text/code files open in the read-only viewer. */
+    private readonly codeViewer: () => boolean = () => true,
   ) {}
 
   get current(): FileTruthOpenReplyV1 | null {
@@ -176,22 +185,35 @@ export class WorkspaceSession {
    * A failed open leaves the other tabs alone; the caller decides how to report
    * it. Nothing is remembered as recent unless the open actually succeeded.
    */
-  async openPath(filePath: string): Promise<FileTruthOpenReplyV1> {
+  async openPath(filePath: string): Promise<WorkspaceOpenReplyV1> {
     const resolved = path.resolve(filePath);
     /*
-     * The same answer the tree, the index and the Open dialog give.
-     *
-     * This is the one way in that took anything, so `Noto main.ts` opened a
-     * source file and drew it as prose: its indentation gone, its template
-     * literals read as code spans, and any block the reader touched written
-     * back as markdown rather than as the code it is. Refusing says what the
-     * editor is for instead of quietly making a mess of the file.
+     * Notes go through file-truth. Everything else the code viewer recognises
+     * opens read-only, without a markdown parse and without a save token, so
+     * the bytes on disk cannot be rewritten as prose. Anything else is still
+     * refused — that is what stopped a `.ts` being opened as a note.
      */
-    if (!isEditableFile(resolved)) {
-      throw new Error(
-        `Noto edits Markdown, and ${path.basename(resolved)} is not a Markdown file.`,
-      );
+    if (isEditableFile(resolved)) {
+      this.clearCodeView();
+      const opened = await this.openMarkdownPath(resolved);
+      return { version: NOTO_WORKSPACE_VERSION, opened };
     }
+    if (this.codeViewer() && isViewableCodeFile(resolved)) {
+      const codeView = await this.loadCodeView(resolved);
+      this.publishCodeView(codeView);
+      if (this.folderRoot === null) await this.adoptFolder(path.dirname(resolved), false);
+      await this.recent.remember(resolved);
+      this.applyWindowTitle(resolved);
+      this.logger.log('workspace_code_view_opened', { openCount: this.documents.size });
+      return { version: NOTO_WORKSPACE_VERSION, codeView };
+    }
+    throw new Error(
+      `Noto edits Markdown, and ${path.basename(resolved)} is not a Markdown file.`,
+    );
+  }
+
+  /** Open a Markdown note the way openPath always has. */
+  private async openMarkdownPath(resolved: string): Promise<FileTruthOpenReplyV1> {
     const existing = this.documents.get(resolved);
     if (existing) {
       this.activate(resolved);
@@ -207,16 +229,10 @@ export class WorkspaceSession {
     try {
       opened = await store.open(resolved);
     } catch (cause) {
-      // The store never became usable, so it must not be left holding handles.
       store.close();
       throw cause;
     }
 
-    /*
-     * The store watches the file and says when it moved under the document.
-     * A closure rather than a window handed to the store, so the store keeps no
-     * Electron import and stays testable with a plain function.
-     */
     store.onExternalChange = (event) => {
       this.send(FILE_TRUTH_CHANNELS.externalChange, {
         version: 1,
@@ -229,16 +245,6 @@ export class WorkspaceSession {
     this.activations += 1;
     this.documents.set(resolved, { store, opened, activatedAt: this.activations });
     this.activePath = resolved;
-    /*
-     * A note opened on its own brings its folder with it.
-     *
-     * Without this, opening a file from Finder left the workspace with no
-     * folder at all: the tree was empty and quick open answered "no folder is
-     * open, so there is nothing to search yet" while the title bar was showing
-     * the folder's name. Typora does the same, mounting the file's own
-     * directory. A folder the reader chose is never replaced, because moving
-     * somebody's sidebar out from under them is not what opening a file means.
-     */
     if (this.folderRoot === null) await this.adoptFolder(path.dirname(resolved), false);
     await this.recent.remember(opened.path);
     this.logger.log('workspace_document_opened', {
@@ -251,12 +257,66 @@ export class WorkspaceSession {
     return opened;
   }
 
+  /** Read a non-Markdown file for the read-only viewer. Never writes. */
+  private async loadCodeView(resolved: string): Promise<WorkspaceCodeViewV1> {
+    const name = path.basename(resolved);
+    const language = languageFor(name) ?? '';
+    try {
+      const info = await stat(resolved);
+      if (info.size > CODE_VIEW_MAX_BYTES) {
+        return {
+          path: resolved, name, language, content: '', truncated: false,
+          notice: `This file is ${info.size.toLocaleString()} bytes, over the ${CODE_VIEW_MAX_BYTES.toLocaleString()}-byte preview limit.`,
+        };
+      }
+      const raw = await readFile(resolved);
+      const text = raw.toString('utf8');
+      if (isProbablyBinary(text)) {
+        return {
+          path: resolved, name, language, content: '', truncated: false,
+          notice: 'This looks like a binary file, so it is not shown as text.',
+        };
+      }
+      const lines = text.split('\n');
+      if (lines.length > CODE_VIEW_MAX_LINES) {
+        const kept = lines.slice(0, CODE_VIEW_MAX_LINES).join('\n');
+        return {
+          path: resolved, name, language, content: kept, truncated: true,
+          notice: `Showing the first ${CODE_VIEW_MAX_LINES.toLocaleString()} lines of ${lines.length.toLocaleString()}.`,
+        };
+      }
+      return { path: resolved, name, language, content: text, truncated: false, notice: null };
+    } catch (cause) {
+      const reason = cause instanceof Error ? cause.message : 'The file could not be read.';
+      return {
+        path: resolved, name, language, content: '', truncated: false,
+        notice: reason,
+      };
+    }
+  }
+
+  private publishCodeView(codeView: WorkspaceCodeViewV1 | null): void {
+    this.codeViewPath = codeView?.path ?? null;
+    this.send(WORKSPACE_CHANNELS.codeViewChanged, {
+      version: NOTO_WORKSPACE_VERSION,
+      codeView,
+    });
+  }
+
+  /** Hide the code viewer, if one is showing. */
+  clearCodeView(): void {
+    if (this.codeViewPath === null) return;
+    this.publishCodeView(null);
+  }
+
+
   /** Bring an already open document to the front. */
   activate(filePath: string): FileTruthOpenReplyV1 | null {
     const resolved = path.resolve(filePath);
     const document = this.documents.get(resolved);
     if (!document) return null;
 
+    this.clearCodeView();
     this.activations += 1;
     document.activatedAt = this.activations;
     this.activePath = resolved;
@@ -266,13 +326,6 @@ export class WorkspaceSession {
     return document.opened;
   }
 
-  /**
-   * Close a document and release its store.
-   *
-   * The neighbour to the left becomes active, which is what every tabbed editor
-   * does and what the eye expects. Closing the last tab leaves the empty state
-   * rather than quitting, so an accidental close is not destructive.
-   */
   /**
    * Open the file closed most recently that still exists, Typora's Reopen
    * Closed File. Null when there is none, which the menu says nothing about:
@@ -286,11 +339,19 @@ export class WorkspaceSession {
       } catch {
         continue;
       }
-      return this.openPath(candidate);
+      const opened = await this.openPath(candidate);
+      return 'codeView' in opened ? null : opened.opened;
     }
     return null;
   }
 
+  /**
+   * Close a document and release its store.
+   *
+   * The neighbour to the left becomes active, which is what every tabbed editor
+   * does and what the eye expects. Closing the last tab leaves the empty state
+   * rather than quitting, so an accidental close is not destructive.
+   */
   close(filePath: string): void {
     const resolved = path.resolve(filePath);
     const document = this.documents.get(resolved);
@@ -335,7 +396,10 @@ export class WorkspaceSession {
     if (result.canceled || result.filePaths.length === 0) return null;
 
     let last: FileTruthOpenReplyV1 | null = null;
-    for (const filePath of result.filePaths) last = await this.openPath(filePath);
+    for (const filePath of result.filePaths) {
+      const opened = await this.openPath(filePath);
+      if (!('codeView' in opened)) last = opened.opened;
+    }
     return last;
   }
 
@@ -1146,7 +1210,9 @@ export class WorkspaceSession {
     if (!this.folderRoot) throw new Error('NO_FOLDER_OPEN: choose a folder first');
     return {
       version: NOTO_WORKSPACE_VERSION,
-      entries: await listDirectory(this.folderRoot, path.resolve(target), this.treeSort()),
+      entries: await listDirectory(
+        this.folderRoot, path.resolve(target), this.treeSort(), this.codeViewer(),
+      ),
     };
   }
 
@@ -1199,6 +1265,7 @@ export class WorkspaceSession {
       defaultPath: this.currentPath ? path.dirname(this.currentPath) : undefined,
     };
   }
+
 
   private send(channel: string, payload: unknown): void {
     const window = this.getWindow();

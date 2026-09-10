@@ -163,9 +163,9 @@ export function registerWorkspaceHandlers(deps: {
 
   register(WORKSPACE_CHANNELS.openPath, isWorkspaceOpenPathRequestV1,
     async (request: WorkspaceOpenPathRequestV1) => {
-      const opened = await deps.session.openPath(request.path);
+      const reply = await deps.session.openPath(request.path);
       deps.onMenuStale();
-      return { version: NOTO_WORKSPACE_VERSION, opened } as const;
+      return reply;
     });
 
   register(WORKSPACE_CHANNELS.saveAsDialog, isWorkspaceRequestV1, async () => ({

@@ -219,6 +219,13 @@ export interface NotoSettingsV1 {
    */
   readonly timelines: boolean;
   /**
+   * Open non-Markdown text and code files in a read-only viewer.
+   *
+   * On by default, matching the author's typora-plugin-lite `code-viewer`.
+   * Off leaves the tree and Open path as Markdown-only.
+   */
+  readonly codeViewer: boolean;
+  /**
    * Close a bracket or a quote as it is opened.
    *
    * On, as the author's Typora is set. It never pairs in the middle of a word,
@@ -324,6 +331,7 @@ export const DEFAULT_SETTINGS: NotoSettingsV1 = Object.freeze({
   codeIndentGuides: true,
   codeTabMarkers: true,
   timelines: true,
+  codeViewer: true,
   autoPair: true,
   todoCheckTime: true,
   focusMode: false,
