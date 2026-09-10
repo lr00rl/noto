@@ -180,25 +180,43 @@ containment with it and markdown input rules keep working.
 Thirteen percent is worth a one line rule with no behavioural cost, but it does
 not make a two megabyte document feel immediate. A keystroke there still costs
 about 104 ms against a 16 ms frame budget. Getting further means rendering fewer
-blocks, which is what `content-visibility` would have done had it not broken
-input rules, so the remaining option is a virtual scroller that ProseMirror can
-live with. The script half, 18 ms on that file, is also above budget on its own
-and has not been broken down yet.
+blocks. Blanket `content-visibility` would have done that and broke input rules;
+the selective form below takes the paint win without that cost. A virtual
+scroller that drops off-screen content from the DOM entirely is still the next
+step if this is not enough. The script half, 18 ms on that file, is also above
+budget on its own and has not been broken down yet.
 
-## A CSS approach to long documents that does not work
+## Selective content-visibility
 
 `content-visibility: auto` on top level blocks is the obvious way to stop the
 engine laying out a document nobody has scrolled to, and it measurably helps:
 opening the largest file dropped about 15 percent and a keystroke in the two
 megabyte file dropped about 40 percent.
 
-It also breaks markdown input rules. With it applied, typing `## ` no longer
-produces a heading and `- [ ] ` no longer produces a task item, consistently
-rather than intermittently. `content-visibility` implies style containment, and
-that interferes with how ProseMirror reads the DOM back after a keystroke.
-Narrowing it to exclude lists did not help; the heading rule then failed
-instead. It is reverted, and recorded here so the next person measuring the same
-tempting win knows what it costs.
+Applied to every block it also breaks markdown input rules. Typing `## ` no
+longer produces a heading and `- [ ] ` no longer produces a task item,
+consistently rather than intermittently. `content-visibility` implies style
+containment, and that interferes with how ProseMirror reads the DOM back after a
+keystroke. Narrowing it to exclude lists did not help; the heading rule then
+failed instead.
+
+The failure is on the block being typed into, not on its siblings. So the
+stylesheet now puts `content-visibility: auto` on every top level block, and
+turns it off again for the selection's neighbourhood via `noto-layout-live`
+(and the existing `noto-active-block`). Off-screen blocks stay deferred; the
+caret's block stays fully painted, which is what input rules, find and the
+outline jump need. The plugin is `viewport-layout.ts`; it decorates three blocks
+around the caret rather than walking the document.
+
+This is still not a virtual scroller: every block remains in the DOM. What it
+removes is layout and paint for the ones outside the viewport. Re-measure with
+`scripts/bench/profile-typing.mjs` after packaging; the earlier blanket run is
+the expected magnitude (about forty percent off the layout half on `large`) and
+the behavioural check is that `## ` and `- [ ] ` still convert in a long file.
+
+A stubbing scroller that replaces off-screen blocks with height placeholders is
+the follow-up if keystrokes on `large` are still above a frame. It is a larger
+change to selection, find and node views, which is why this slice lands first.
 
 ## What is still slow, and why
 

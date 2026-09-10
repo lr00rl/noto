@@ -38,3 +38,20 @@ which is a different architecture rather than a tuning.
 What is left is the view layer, and it is the honest limit of this design at
 this size. A 2MB note, which is larger than all but three notes in the vault,
 takes 113ms a keystroke: perceptible, and short of where it should be.
+
+## Selective paint deferral, 2026-09-10
+
+The view cost above is mostly the engine laying out every top level block on
+each keystroke. `contain: layout` alone took about thirteen percent off that.
+Blanket `content-visibility: auto` took about forty percent off a keystroke on
+the two megabyte corpus and broke markdown input rules, because style
+containment on the block under the caret stops ProseMirror reading the DOM back
+after a keystroke.
+
+The editor now keeps that paint deferral for every top level block that is not
+near the selection, and forces the selection's neighbourhood fully painted.
+Input rules keep working; off-screen blocks are not laid out. Reproduce the
+layout split with `scripts/bench/profile-typing.mjs` against a packaged build.
+This still leaves every block in the DOM: if `large` remains above a frame after
+re-measurement, the next step is a stubbing scroller rather than more CSS.
+
