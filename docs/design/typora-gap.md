@@ -666,8 +666,8 @@ cases look like one and are not.
 ## 39. There was no way to make a link, or to change one. Closed.
 
 Typora's menu was read out of its own bundle, 301 labels, and set beside
-Noto's. Most of what it has that Noto does not is export, printing and
-document conversion. One entry was not like the others: Hyperlink, on Command
+Noto's. Most of what it had that Noto did not was export, printing and
+document conversion; export is closed below. One entry was not like the others: Hyperlink, on Command
 and K, which Noto had no command for at all, on any menu or key. Making a link
 is among the most common things anybody does in markdown.
 
@@ -1009,13 +1009,11 @@ deliberate, and the rule says so: only folders on the path to the note in
 front are sticky, so the rail reads as where the file you are in lives rather
 than as a stack of everything ever opened. Nothing was open in that picture.
 
-Two more from the same pass are genuinely absent and are left that way on
-purpose. Structural selection and deletion, which Typora puts on Edit, is
-already there from the platform: Option and Backspace takes a word, Command
-and Backspace takes the line, Option and Shift and an arrow selects a word.
-Building those would be reimplementing macOS. And export, which is the largest
-thing Typora has and this does not, needs a rendering pipeline this does not
-carry; it is a real gap and a whole piece of work rather than an afternoon's.
+Two more from the same pass looked absent. Structural selection and deletion,
+which Typora puts on Edit, is already there from the platform: Option and
+Backspace takes a word, Command and Backspace takes the line, Option and Shift
+and an arrow selects a word. Building those would be reimplementing macOS.
+Export looked like the largest gap and is closed below.
 
 ## 55. The type scale, measured against Typora one more time. One face short.
 
@@ -1183,6 +1181,34 @@ restore actually needed: the window can finish loading before the read of the
 recent folders that startup began has come back, and then the list is empty.
 Asking main directly from the restored window, rather than inferring from a
 log, is what settled it in one run.
+
+## 62. Export. Closed, for the formats a reader reaches for.
+
+Typora's File menu offers twelve ways out of a note. Noto had none, and a note
+nobody can get out of the editor is a note held hostage by it.
+
+Two jobs behind one menu, and the split is the whole design. PDF and HTML are
+the document as Noto draws it: the editor serializes what is on screen, main
+wraps it in a stylesheet written for a page rather than a window, pictures are
+inlined so the file stands alone, and a PDF is that page printed in a window
+nobody sees. Word, OpenDocument, RTF, EPUB, LaTeX, MediaWiki, reStructuredText,
+Textile and OPML are conversions of the markdown, and Pandoc does those from
+the file on disk when it is present, the same way import already works. A
+Pandoc format is refused while the note has unsaved changes rather than
+quietly exporting the last saved version.
+
+The command palette carries the same list, so export is reachable the way a
+hand that has learned Shift-Command-P reaches anything else. Callouts keep
+their tint in the exported stylesheet, and a mermaid diagram travels as the
+SVG the sandboxed frame had already drawn: `cloneNode` does not carry an
+iframe's document, so without lifting the drawing out every diagram would
+have arrived as an empty box.
+
+What is still not here, and is named rather than chased: export as an image,
+which Typora offers and which is a screenshot of a page rather than a
+document; carrying a custom theme's stylesheet into the export rather than
+the reading-column defaults; and anything that would ship Pandoc inside the
+app. Pandoc stays optional, with an honest failure when it is missing.
 
 # Where things stand
 

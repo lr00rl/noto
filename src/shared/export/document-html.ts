@@ -106,12 +106,48 @@ hr { border: 0; border-top: 1px solid var(--hairline); margin: 2em 0; }
 /* KaTeX is reduced to MathML on the way out, which the browser draws itself. */
 math { font-size: 1.05em; }
 
+/* Callouts, restated from the editor. The vault holds them by the hundred, and
+   an exported page that drew them as plain quotes would be a different document. */
+.noto-alert {
+  --alert-color: var(--hairline);
+  margin: 0.9em 0;
+  border-left: 3px solid var(--alert-color);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--alert-color) 7%, transparent);
+  padding: 0.7em 0.9em 0.7em 1em;
+  color: var(--ink);
+  line-height: 1.56;
+}
+.noto-alert-note { --alert-color: #2F6F9F; }
+.noto-alert-tip { --alert-color: #3F7652; }
+.noto-alert-important { --alert-color: #70559C; }
+.noto-alert-warning { --alert-color: #85620F; }
+.noto-alert-caution { --alert-color: #A4473F; }
+.noto-alert > p { margin: 0.35em 0; }
+.noto-alert-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0 0 0.25em;
+  color: var(--alert-color);
+  font: 600 12px/1.4 system-ui, sans-serif;
+  letter-spacing: 0.02em;
+}
+.noto-alert-title svg { width: 14px; height: 14px; fill: none; stroke: currentcolor; stroke-width: 1.5; }
+.noto-alert-marker { display: none; }
+
+/* Mermaid arrives as an SVG lifted out of its sandboxed frame. */
+.noto-diagram { margin: 0.6em 0; }
+.noto-diagram svg { display: block; max-width: 100%; height: auto; }
+.noto-diagram[data-state='failed'],
+.noto-diagram[data-state='empty'] { color: var(--muted); font-size: 0.9em; }
+
 /* Printing is the point of the PDF path, so the page breaks are chosen rather
    than left to land in the middle of a heading or across a table row. */
 @media print {
   body { padding: 0; max-width: none; }
   h1, h2, h3, h4, h5, h6 { break-after: avoid-page; }
-  pre, blockquote, table, img { break-inside: avoid; }
+  pre, blockquote, table, img, .noto-alert, .noto-diagram { break-inside: avoid; }
   a { color: var(--ink); border-bottom: 0; }
 }
 `.trim();

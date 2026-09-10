@@ -8,16 +8,22 @@
  * HTML are the opposite: what they are for is the document as Noto draws it, so
  * they come from the renderer's own HTML and its own stylesheet.
  *
- * This file owns the first job and the naming for both. The decisions are pure
+ * This file owns the Pandoc job and the naming for both. The decisions are pure
  * and tested; the one impure part is the same `execFile` the import uses, with
- * an argument array and no shell.
+ * an argument array and no shell. Labels and writers live in shared so the
+ * command palette names the same things the menu does.
  */
 
 import path from 'node:path';
-import { EXPORT_KINDS, type WorkspaceExportKindV1 } from '../../shared/workspace/v1/contracts';
+import {
+  EXPORT_TARGETS,
+  exportShape,
+  needsPandoc,
+  type ExportTargetShape,
+} from '../../shared/export/targets';
+import type { WorkspaceExportKindV1 } from '../../shared/workspace/v1/contracts';
 
-/** What the File menu offers, in the order Typora lists its own. */
-export const EXPORT_TARGETS = EXPORT_KINDS;
+export { EXPORT_TARGETS, exportShape, needsPandoc };
 
 /**
  * The same set the IPC carries, not a second list.
@@ -29,39 +35,7 @@ export const EXPORT_TARGETS = EXPORT_KINDS;
  */
 export type ExportTarget = WorkspaceExportKindV1;
 
-interface TargetShape {
-  /** What the menu calls it. */
-  readonly label: string;
-  /** The extension the file is given, without its dot. */
-  readonly extension: string;
-  /**
-   * The Pandoc writer, or null when Noto renders it itself.
-   *
-   * PDF and HTML are rendered rather than converted because what they are for
-   * is the document as it looks, which Pandoc has never seen.
-   */
-  readonly writer: string | null;
-}
-
-const TARGETS: Readonly<Record<ExportTarget, TargetShape>> = {
-  pdf: { label: 'PDF', extension: 'pdf', writer: null },
-  html: { label: 'HTML', extension: 'html', writer: null },
-  'html-plain': { label: 'HTML without styles', extension: 'html', writer: null },
-  docx: { label: 'Word (.docx)', extension: 'docx', writer: 'docx' },
-  odt: { label: 'OpenDocument', extension: 'odt', writer: 'odt' },
-  rtf: { label: 'RTF', extension: 'rtf', writer: 'rtf' },
-  epub: { label: 'EPUB', extension: 'epub', writer: 'epub3' },
-  latex: { label: 'LaTeX', extension: 'tex', writer: 'latex' },
-  mediawiki: { label: 'MediaWiki', extension: 'wiki', writer: 'mediawiki' },
-  rst: { label: 'reStructuredText', extension: 'rst', writer: 'rst' },
-  textile: { label: 'Textile', extension: 'textile', writer: 'textile' },
-  opml: { label: 'OPML', extension: 'opml', writer: 'opml' },
-};
-
-export const exportShape = (target: ExportTarget): TargetShape => TARGETS[target];
-
-/** Whether Pandoc does this one, as opposed to Noto rendering it. */
-export const needsPandoc = (target: ExportTarget): boolean => TARGETS[target].writer !== null;
+export type TargetShape = ExportTargetShape;
 
 /**
  * What the exported file is called, offered in the save dialog.
@@ -73,7 +47,7 @@ export function suggestedName(notePath: string, target: ExportTarget): string {
   const base = path.basename(notePath);
   const dot = base.lastIndexOf('.');
   const stem = dot > 0 ? base.slice(0, dot) : base;
-  return `${stem}.${TARGETS[target].extension}`;
+  return `${stem}.${exportShape(target).extension}`;
 }
 
 /**
@@ -92,7 +66,7 @@ export function exportArguments(
   destination: string,
   target: ExportTarget,
 ): string[] {
-  const writer = TARGETS[target].writer;
+  const writer = exportShape(target).writer;
   if (writer === null) throw new Error(`EXPORT_NOT_PANDOC:${target}`);
   return [
     '--from', 'gfm',

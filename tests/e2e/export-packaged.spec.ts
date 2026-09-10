@@ -27,6 +27,11 @@ const NOTE = [
   '\\int_0^1 x^2 dx',
   '$$',
   '',
+  '```mermaid',
+  'graph LR',
+  '  A --> B',
+  '```',
+  '',
 ].join('\n');
 
 async function launch(name: string): Promise<{
@@ -101,49 +106,58 @@ test.describe('export', () => {
   test('writes a standalone HTML page with the styles in it', async () => {
     const { app, page, out } = await launch('html');
     try {
+      // Mermaid draws asynchronously in its frame; export lifts that SVG, so
+      // the drawing has to be there before the menu item is pressed.
+      await expect(page.locator('.noto-diagram[data-state="rendered"]')).toBeVisible({ timeout: 20_000 });
       await mkdir(out, { recursive: true });
       const destination = path.join(out, 'note.html');
       await exportTo(app, 'html', destination);
       await written(destination).not.toBeNull();
 
-      const page = await readFile(destination, 'utf8');
-      expect(page).toMatch(/^<!doctype html>/);
-      expect(page).toContain('<title>note</title>');
+      const html = await readFile(destination, 'utf8');
+      expect(html).toMatch(/^<!doctype html>/);
+      expect(html).toContain('<title>note</title>');
       // Standalone: the styles travel with it.
-      expect(page).toContain('<style>');
+      expect(html).toContain('<style>');
       // And the document itself came through, table and all.
-      expect(page).toContain('平台增长复盘');
-      expect(page).toContain('<table');
-      expect(page).toContain('日活跃');
+      expect(html).toContain('平台增长复盘');
+      expect(html).toContain('<table');
+      expect(html).toContain('日活跃');
       // The picture travels inside the file too. Its address in the note is
       // relative, which is right in the note and wrong in a file saved
       // anywhere else, so an exported page that only worked next to its own
       // note would not be one you could send to anybody.
-      expect(page).toContain('src="data:image/png;base64,');
-      expect(page).not.toContain('./assets/dot.png');
+      expect(html).toContain('src="data:image/png;base64,');
+      expect(html).not.toContain('./assets/dot.png');
 
       // Maths arrives as maths. The schema knows only the TeX source, so
       // exporting from it gave a page of backslashes; this comes from what
       // KaTeX drew, reduced to the MathML the browser draws for itself.
-      expect(page).toContain('<math');
+      expect(html).toContain('<math');
       // The TeX survives only inside MathML's own annotation, which is where it
       // belongs: it makes the formula copyable and recoverable without being
       // drawn. What must not survive is the source as visible text.
-      const outsideAnnotation = page.replace(/<annotation[^>]*>[\s\S]*?<\/annotation>/g, '');
+      const outsideAnnotation = html.replace(/<annotation[^>]*>[\s\S]*?<\/annotation>/g, '');
       expect(outsideAnnotation).not.toContain('\\int_0^1');
-      expect(page).toContain('<annotation');
+      expect(html).toContain('<annotation');
       // And KaTeX's own spans are gone, or the formula would arrive twice over
       // with no stylesheet to hide either half.
-      expect(page).not.toContain('katex-html');
+      expect(html).not.toContain('katex-html');
 
       // Code arrives coloured, because Prism had already done it.
-      expect(page).toContain('token keyword');
-      expect(page).toContain('answer');
+      expect(html).toContain('token keyword');
+      expect(html).toContain('answer');
+
+      // A mermaid fence arrives as the SVG the frame had drawn, not as an
+      // empty iframe. cloneNode does not carry an iframe's document.
+      expect(html).toContain('<svg');
+      expect(html).not.toContain('noto-diagram-frame');
+      expect(html).not.toContain('<iframe');
 
       // None of the editing furniture comes with it.
-      expect(page).not.toContain('noto-fence-gutter');
-      expect(page).not.toContain('noto-fence-copy');
-      expect(page).not.toContain('contenteditable');
+      expect(html).not.toContain('noto-fence-gutter');
+      expect(html).not.toContain('noto-fence-copy');
+      expect(html).not.toContain('contenteditable');
     } finally {
       await app.close();
     }
@@ -156,9 +170,9 @@ test.describe('export', () => {
       const destination = path.join(out, 'plain.html');
       await exportTo(app, 'html-plain', destination);
       await written(destination).not.toBeNull();
-      const page = await readFile(destination, 'utf8');
-      expect(page).not.toContain('<style>');
-      expect(page).toContain('平台增长复盘');
+      const html = await readFile(destination, 'utf8');
+      expect(html).not.toContain('<style>');
+      expect(html).toContain('平台增长复盘');
     } finally {
       await app.close();
     }
