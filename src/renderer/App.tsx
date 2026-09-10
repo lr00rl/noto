@@ -20,6 +20,7 @@ import type {
 } from '../shared/file-truth/v1/contracts';
 import type {
   RecentFileV1, WorkspaceIndexEntryV1, WorkspaceTabV1,
+  WorkspaceTagSummaryV1, WorkspaceTagNoteV1,
 } from '../shared/workspace/v1/contracts';
 import { QuickOpen, type QuickOpenMode } from './QuickOpen';
 import {
@@ -39,6 +40,9 @@ import { NotoCanvas } from './editor/noto/NotoCanvas';
 import type { DocumentCount } from './editor/noto/word-count';
 import { FindBar } from './FindBar';
 import { RecentStrip } from './RecentStrip';
+import { TagStrip } from './TagStrip';
+import { TagBrowser, type TagBrowserView } from './TagBrowser';
+import { parseTagsFromMarkdown } from '../shared/tags/parse';
 import { WorkspaceRail, type RailView } from './WorkspaceRail';
 import { SourceMode } from './SourceMode';
 import { TableDialog } from './TableDialog';
@@ -362,6 +366,16 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
   const [quickOpen, setQuickOpen] = useState<{ open: boolean; mode: QuickOpenMode; linking?: boolean }>(
     { open: false, mode: 'files' },
   );
+  const [tagBrowser, setTagBrowser] = useState<{
+    open: boolean;
+    view: TagBrowserView;
+    tags: readonly WorkspaceTagSummaryV1[];
+    notes: readonly WorkspaceTagNoteV1[];
+    loading: boolean;
+    truncated: boolean;
+  }>({ open: false, view: { kind: 'tags' }, tags: [], notes: [], loading: false, truncated: false });
+  const [noteTags, setNoteTags] = useState<string[]>([]);
+
   const [recentFolders, setRecentFolders] = useState<readonly RecentFileV1[]>([]);
   const [folderMenu, setFolderMenu] = useState(false);
   /* The editor is constructed once per document and keeps the callbacks it was
@@ -1238,6 +1252,62 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
     if (documentId === activeIdRef.current) setCount(next);
   };
 
+
+  // The note's tags come from its frontmatter. Re-read when the note in front
+  // changes or when a keystroke could have edited the YAML: the chips are a
+  // view of the file, not a second store.
+  useEffect(() => {
+    if (!settings.fileTags) {
+      setNoteTags([]);
+      return;
+    }
+    const markdown = editorRef.current?.getMarkdown()
+      ?? active?.opened.document.text
+      ?? '';
+    setNoteTags(parseTagsFromMarkdown(markdown));
+  }, [settings.fileTags, active?.opened.path, active?.document.revisionId, editorsReady]);
+
+
+  const openTagBrowser = useCallback(async (tag?: string) => {
+    if (!settings.fileTags) return;
+    setPrefs((current) => ({ ...current, open: false }));
+    setQuickOpen((current) => ({ ...current, open: false }));
+    setTagBrowser((current) => ({
+      ...current,
+      open: true,
+      view: tag ? { kind: 'notes', tag } : { kind: 'tags' },
+      loading: true,
+      notes: tag ? current.notes : [],
+    }));
+    const index = await window.notoWorkspace.tagIndex({ version: 1, requestId: rid('tag-index') });
+    if (!index.ok) {
+      setTagBrowser((current) => ({ ...current, loading: false, tags: [], truncated: false }));
+      return;
+    }
+    if (tag) {
+      const notes = await window.notoWorkspace.notesByTag({
+        version: 1, requestId: rid('notes-by-tag'), tag,
+      });
+      setTagBrowser({
+        open: true,
+        view: { kind: 'notes', tag: notes.ok ? notes.value.tag : tag },
+        tags: index.value.tags,
+        notes: notes.ok ? notes.value.notes : [],
+        loading: false,
+        truncated: index.value.truncated,
+      });
+      return;
+    }
+    setTagBrowser({
+      open: true,
+      view: { kind: 'tags' },
+      tags: index.value.tags,
+      notes: [],
+      loading: false,
+      truncated: index.value.truncated,
+    });
+  }, [settings.fileTags]);
+
   const noteLinks = useCallback(async (target: string) => {
     const result = await window.notoWorkspace.noteLinks({ version: 1, requestId: rid('note-links'), path: target });
     return result.ok ? { reply: result.value } : { error: result.error.message };
@@ -1580,6 +1650,9 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
         break;
       case 'navigate-forward':
         stepTrailRef.current(1);
+        break;
+      case 'browse-tags':
+        void openTagBrowser();
         break;
       case 'quick-open':
         // Preferences is modal and would sit over it, for the same reason the
@@ -2090,6 +2163,9 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
                 />
               )}
               <div hidden={sourceMode} className="canvas-rendered">
+              {settings.fileTags && doc.document.documentId === activeId && (
+                <TagStrip tags={noteTags} onTag={(tag) => { void openTagBrowser(tag); }} />
+              )}
               <NotoCanvas
                 document={doc.document}
                 mac={platform === 'darwin'}
@@ -2109,7 +2185,13 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
                 onActiveBlockChanged={setActiveBlock}
                 onDirtyChange={(dirty) => onDocumentDirtyChange(doc.document.documentId, dirty)}
                 onDocumentChanged={() => {
-                  if (doc.document.documentId === activeIdRef.current) bumpTyping();
+                  if (doc.document.documentId === activeIdRef.current) {
+                    bumpTyping();
+                    if (settings.fileTags) {
+                      const markdown = editorsRef.current.get(doc.document.documentId)?.getMarkdown() ?? '';
+                      setNoteTags(parseTagsFromMarkdown(markdown));
+                    }
+                  }
                 }}
                 onFollowWikiLink={(target) => followWikiLinkRef.current(target)}
                 onWikiTrigger={() => {
@@ -2193,6 +2275,25 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
                 </section>}
         </main>
       </div>
+
+      <TagBrowser
+        open={tagBrowser.open}
+        view={tagBrowser.view}
+        tags={tagBrowser.tags}
+        notes={tagBrowser.notes}
+        loading={tagBrowser.loading}
+        truncated={tagBrowser.truncated}
+        onOpenTag={(tag) => { void openTagBrowser(tag); }}
+        onOpenNote={(path) => {
+          setTagBrowser((current) => ({ ...current, open: false }));
+          void openPath(path);
+        }}
+        onBack={() => { void openTagBrowser(); }}
+        onClose={() => {
+          setTagBrowser((current) => ({ ...current, open: false }));
+          editorRef.current?.focus();
+        }}
+      />
 
       <QuickOpen
         open={quickOpen.open}

@@ -51,6 +51,9 @@ export const WORKSPACE_CHANNELS = {
   newFile: 'noto:v1:workspace:new-file',
   treeMenu: 'noto:v1:workspace:tree-menu',
   searchContent: 'noto:v1:workspace:search-content',
+  /** Tags from every note's frontmatter, and the notes that share one. */
+  tagIndex: 'noto:v1:workspace:tag-index',
+  notesByTag: 'noto:v1:workspace:notes-by-tag',
   /** Rename, duplicate, trash or make a folder. See `WorkspaceEntryActionV1`. */
   manageEntry: 'noto:v1:workspace:manage-entry',
   /** Push: something in the tree moved, so a listing on screen is stale. */
@@ -292,6 +295,7 @@ export const WORKSPACE_MENU_COMMANDS = [
   'search-content',
   'navigate-back',
   'navigate-forward',
+  'browse-tags',
 ] as const;
 
 export type WorkspaceMenuCommandV1 = typeof WORKSPACE_MENU_COMMANDS[number];
@@ -635,6 +639,36 @@ export interface WorkspaceLinkV1 {
  * it has one that has not met this note. The lists are empty in both cases,
  * and the renderer says which of the two it is.
  */
+/** One tag as the vault's notes declare it, with how many notes carry it. */
+export interface WorkspaceTagSummaryV1 {
+  readonly tag: string;
+  readonly count: number;
+}
+
+export interface WorkspaceTagIndexReplyV1 {
+  readonly version: typeof NOTO_WORKSPACE_VERSION;
+  readonly tags: readonly WorkspaceTagSummaryV1[];
+  /** True when a budget stopped the scan before every note was read. */
+  readonly truncated: boolean;
+}
+
+export interface WorkspaceNotesByTagRequestV1 extends WorkspaceRequestV1 {
+  /** The tag to look up; matching is case-insensitive. */
+  readonly tag: string;
+}
+
+export interface WorkspaceTagNoteV1 {
+  readonly path: string;
+  readonly relativePath: string;
+  readonly title: string;
+}
+
+export interface WorkspaceNotesByTagReplyV1 {
+  readonly version: typeof NOTO_WORKSPACE_VERSION;
+  readonly tag: string;
+  readonly notes: readonly WorkspaceTagNoteV1[];
+}
+
 export interface WorkspaceLinksReplyV1 {
   readonly version: typeof NOTO_WORKSPACE_VERSION;
   readonly available: boolean;
@@ -684,6 +718,8 @@ export interface NotoWorkspaceApiV1 {
   pathForFile(file: File): string;
   /** The graph's lists for the note at `path`; the request is the folder request, a path. */
   noteLinks(request: WorkspaceFolderRequestV1): Promise<WorkspaceResultV1<WorkspaceLinksReplyV1>>;
+  tagIndex(request: WorkspaceRequestV1): Promise<WorkspaceResultV1<WorkspaceTagIndexReplyV1>>;
+  notesByTag(request: WorkspaceNotesByTagRequestV1): Promise<WorkspaceResultV1<WorkspaceNotesByTagReplyV1>>;
   fileIndex(request: WorkspaceRequestV1): Promise<WorkspaceResultV1<WorkspaceIndexReplyV1>>;
   recentFolders(request: WorkspaceRequestV1): Promise<WorkspaceResultV1<WorkspaceRecentReplyV1>>;
   openRecentFolder(request: WorkspaceOpenPathRequestV1): Promise<WorkspaceResultV1<WorkspaceFolderEventV1>>;

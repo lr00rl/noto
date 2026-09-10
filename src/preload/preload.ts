@@ -110,6 +110,9 @@ import type {
   WorkspaceResultV1,
   WorkspaceIndexReplyV1,
   WorkspaceContentReplyV1,
+  WorkspaceTagIndexReplyV1,
+  WorkspaceNotesByTagReplyV1,
+  WorkspaceNotesByTagRequestV1,
   WorkspaceContentRequestV1,
   WorkspaceEntryReplyV1,
   WorkspaceEntryRequestV1,
@@ -155,6 +158,9 @@ import {
   isWorkspaceExportResultV1,
   isWorkspaceRenameRowEventV1,
   isWorkspaceContentResultV1,
+  isWorkspaceTagIndexResultV1,
+  isWorkspaceNotesByTagRequestV1,
+  isWorkspaceNotesByTagResultV1,
   isWorkspaceNewFileResultV1,
   isWorkspaceTreeMenuRequestV1,
   isWorkspaceTreeMenuResultV1,
@@ -427,6 +433,12 @@ const workspaceApi: NotoWorkspaceApiV1 = Object.freeze({
   noteLinks: (request: WorkspaceFolderRequestV1) => isWorkspaceFolderRequestV1(request)
     ? invokeWorkspace<WorkspaceLinksReplyV1>(WORKSPACE_CHANNELS.noteLinks, request, request.requestId, isWorkspaceLinksResultV1)
     : Promise.resolve(rejectedWorkspace<WorkspaceLinksReplyV1>('invalid', 'Invalid note links request')),
+  tagIndex: (request: WorkspaceRequestV1) => isWorkspaceRequestV1(request)
+    ? invokeWorkspace<WorkspaceTagIndexReplyV1>(WORKSPACE_CHANNELS.tagIndex, request, request.requestId, isWorkspaceTagIndexResultV1)
+    : Promise.resolve(rejectedWorkspace<WorkspaceTagIndexReplyV1>('invalid', 'Invalid tag index request')),
+  notesByTag: (request: WorkspaceNotesByTagRequestV1) => isWorkspaceNotesByTagRequestV1(request)
+    ? invokeWorkspace<WorkspaceNotesByTagReplyV1>(WORKSPACE_CHANNELS.notesByTag, request, request.requestId, isWorkspaceNotesByTagResultV1)
+    : Promise.resolve(rejectedWorkspace<WorkspaceNotesByTagReplyV1>('invalid', 'Invalid notes-by-tag request')),
   manageEntry: (request: WorkspaceEntryRequestV1) => isWorkspaceEntryRequestV1(request)
     ? invokeWorkspace<WorkspaceEntryReplyV1>(WORKSPACE_CHANNELS.manageEntry, request, request.requestId, isWorkspaceEntryResultV1)
     : Promise.resolve(rejectedWorkspace<WorkspaceEntryReplyV1>('invalid', 'Invalid entry action request')),

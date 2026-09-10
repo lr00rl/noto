@@ -156,6 +156,9 @@ export function coerceSettings(value: unknown): NotoSettingsV1 {
     imageEscapeUrl: typeof value.imageEscapeUrl === 'boolean'
       ? value.imageEscapeUrl
       : DEFAULT_SETTINGS.imageEscapeUrl,
+    fileTags: typeof value.fileTags === 'boolean'
+      ? value.fileTags
+      : DEFAULT_SETTINGS.fileTags,
   };
 }
 

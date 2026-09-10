@@ -279,6 +279,15 @@ export interface NotoSettingsV1 {
   readonly imageCustomFolder: string;
   /** Percent-encode the reference, so a space in a folder name still resolves. */
   readonly imageEscapeUrl: boolean;
+  /**
+   * Show a note's frontmatter tags and let them open other notes that share one.
+   *
+   * On by default: the author's vault already carries `tags:` on nearly a
+   * hundred notes, and the brief for file-tags was multi-file linking by tag
+   * without needing a plugin to read the file. Off hides the chips and the
+   * Browse Tags command's panel still works from the menu only when on.
+   */
+  readonly fileTags: boolean;
 }
 
 export const DEFAULT_SETTINGS: NotoSettingsV1 = Object.freeze({
@@ -323,6 +332,7 @@ export const DEFAULT_SETTINGS: NotoSettingsV1 = Object.freeze({
   imageDestination: 'assets',
   imageCustomFolder: './images',
   imageEscapeUrl: true,
+  fileTags: true,
 });
 
 /** Clamp to the declared range and drop anything that is not a real number. */
