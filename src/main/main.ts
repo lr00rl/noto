@@ -87,9 +87,19 @@ const folderArgument = (argv: readonly string[]): string | null => {
 
 const launchArguments = app.isPackaged ? process.argv.slice(1) : process.argv.slice(2);
 const openArgument = argumentValue('open');
-let pendingOpenFolder: string | null = openArgument && isDirectory(openArgument)
-  ? path.resolve(openArgument)
-  : folderArgument(launchArguments);
+const folderFlag = argumentValue('folder');
+/*
+ * Folder resolution order: an explicit `--folder=`, then `--open=` when that
+ * path is itself a directory, then a bare positional directory. The code-viewer
+ * e2e (and anyone launching `noto --open=note.md --folder=vault`) needs the
+ * flag; without it the note still brings its parent folder, but as a restore
+ * rather than a choice, so the rail stays shut.
+ */
+let pendingOpenFolder: string | null = folderFlag && isDirectory(folderFlag)
+  ? path.resolve(folderFlag)
+  : openArgument && isDirectory(openArgument)
+    ? path.resolve(openArgument)
+    : folderArgument(launchArguments);
 let pendingOpenPath: string | null = openArgument && !isDirectory(openArgument)
   ? openArgument
   : markdownArgument(launchArguments);
