@@ -61,9 +61,9 @@ test('typing two brackets offers the notes, and writes the link where they were'
     await expect(palette).toHaveCount(0);
 
     // The link replaced the brackets, and the pair auto-pairing added.
-    await expect(editor.locator('p').filter({ hasText: 'See' })).toHaveText('See [[kestrels]]');
+    await expect(editor.locator('p').filter({ hasText: 'See' })).toHaveText('See [[topics/kestrels|kestrels]]');
     await invokeMenu(app, 'save');
-    await expect.poll(() => readFile(file, 'utf8')).toBe('# Links\n\nSee [[kestrels]]\n');
+    await expect.poll(() => readFile(file, 'utf8')).toBe('# Links\n\nSee [[topics/kestrels|kestrels]]\n');
 
     // And it is a link: following it opens the note.
     await editor.locator('.noto-wiki-link').first()

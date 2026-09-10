@@ -41,8 +41,12 @@ test.describe('sidenotes', () => {
       await expect(notes).toHaveCount(2);
       await expect(notes.nth(0)).toContainText('The source for this claim.');
 
-      // The tags are decorations that hide; the source string must not show.
-      await expect(page.locator('.ProseMirror')).not.toContainText('<span class="sidenote">');
+      // Tags stay in the DOM (byte-faithful) but are display:none until edited.
+      // Assert via innerText so hidden source is not mistaken for a drawing bug.
+      await expect(page.locator('.ProseMirror')).not.toContainText('<span class="sidenote">', {
+        useInnerText: true,
+      });
+      await expect(page.locator('.ProseMirror .noto-sidenote-tag').first()).toBeHidden();
 
       // Off: the decorations go and the tags return as source.
       await page.evaluate(() => window.notoSettings.write({
@@ -50,7 +54,9 @@ test.describe('sidenotes', () => {
       }));
       await expect(page.locator('html')).toHaveAttribute('data-sidenotes', 'off');
       await expect(page.locator('.ProseMirror .noto-sidenote-num')).toHaveCount(0);
-      await expect(page.locator('.ProseMirror')).toContainText('<span class="sidenote">');
+      await expect(page.locator('.ProseMirror')).toContainText('<span class="sidenote">', {
+        useInnerText: true,
+      });
     } finally {
       await app.close();
     }

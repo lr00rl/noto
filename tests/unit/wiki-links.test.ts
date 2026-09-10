@@ -23,9 +23,22 @@ describe('finding wiki links', () => {
 
   it('reads a label after a pipe, and falls back to the target without one', () => {
     const [labelled] = findWikiLinks('[[notes/index|the index]]', 0);
-    expect(labelled).toMatchObject({ target: 'notes/index', label: 'the index' });
+    expect(labelled).toMatchObject({
+      target: 'notes/index',
+      label: 'the index',
+      // `notes/index|` is muted; only the label is the clickable face.
+      muteFrom: 2,
+      muteTo: 14,
+      linkFrom: 14,
+      linkTo: 23,
+    });
     const [bare] = findWikiLinks('[[notes/index]]', 0);
-    expect(bare.label).toBe('notes/index');
+    expect(bare).toMatchObject({
+      label: 'notes/index',
+      muteFrom: null,
+      linkFrom: 2,
+      linkTo: 13,
+    });
   });
 
   it('handles CJK targets and paths', () => {
