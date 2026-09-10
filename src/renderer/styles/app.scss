@@ -2140,6 +2140,51 @@ button:disabled { color: var(--muted); opacity: 0.7; }
   .is-primary.is-primary:hover { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); }
 }
 
+/* Reload confirm: same furniture as the table dialog, danger on the action
+   that throws work away. */
+.reload-confirm-scrim {
+  animation: noto-fade var(--motion-micro) var(--ease-out);
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--scrim);
+}
+
+.reload-confirm {
+  animation: noto-arrive var(--motion-default) var(--ease-out);
+  display: grid;
+  gap: 10px;
+  width: min(420px, 92vw);
+  padding: 16px 18px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  background: var(--paper);
+  box-shadow: 0 18px 48px -12px color-mix(in srgb, var(--ink) 34%, transparent);
+  font-family: tokens.$ui;
+}
+
+.reload-confirm-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); }
+.reload-confirm-body { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted); }
+
+.reload-confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+
+  .is-danger {
+    background: var(--danger);
+    color: var(--paper);
+    border-color: transparent;
+  }
+  .is-danger:hover {
+    background: color-mix(in srgb, var(--danger) 88%, var(--ink));
+  }
+}
+
 /* What Noto can do: one sheet, searchable, on the Help menu. Built out of
    the preferences panel's own furniture so it reads as the same product. */
 .shortcuts {

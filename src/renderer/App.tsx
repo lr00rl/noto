@@ -49,6 +49,7 @@ import { parseTagsFromMarkdown } from '../shared/tags/parse';
 import { WorkspaceRail, type RailView } from './WorkspaceRail';
 import { SourceMode } from './SourceMode';
 import { TableDialog } from './TableDialog';
+import { ReloadConfirmDialog } from './ReloadConfirmDialog';
 import { Shortcuts } from './Shortcuts';
 import { RailFooter } from './RailFooter';
 import { Preferences, type PreferencesSection } from './Preferences';
@@ -70,6 +71,7 @@ import {
   fileTruthActions,
   outcomeHasRecoveryEvidence,
   presentFileTruthOutcome,
+  reloadNeedsConfirm,
   type FileTruthUiState,
 } from './file-truth-state';
 import { RendererPluginHost } from './plugins/RendererPluginHost';
@@ -251,6 +253,10 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
   const [shortcuts, setShortcuts] = useState(false);
   /** Typora's Insert Table dialog, open or not. */
   const [tableDialog, setTableDialog] = useState(false);
+  /** Dirty-buffer confirm before a reload that would discard unsaved edits. */
+  const [reloadConfirm, setReloadConfirm] = useState<
+    { documentId: string; offerSaveCopy: boolean } | null
+  >(null);
   /** Source Code Mode, Typora's Command-slash: the note as text, for every tab. */
   const [sourceMode, setSourceMode] = useState(false);
   /** Pushes the source view's pending text into the document, before a save. */
@@ -1079,9 +1085,9 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
 
   saveRef.current = save;
 
-  const saveCopy = async () => {
+  const saveCopy = async (): Promise<boolean> => {
     const editor = editorRef.current;
-    if (!editor || !token || !opened) return;
+    if (!editor || !token || !opened) return false;
 
     // Ask where to put it. The menu item says "Save a Copy…", and the ellipsis
     // is a promise that the user gets to choose. This used to write
@@ -1091,7 +1097,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
       version: 1,
       requestId: rid('save-as-dialog'),
     });
-    if (!chosen.ok || chosen.value.path === null) return;
+    if (!chosen.ok || chosen.value.path === null) return false;
 
     setPending(true);
     try {
@@ -1106,14 +1112,16 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
         setPending(false);
         setLocalMessage(actionableFileTruthMessage(result.error.message, 'Save a copy failed. The original is unchanged.'));
         setState('Save failed');
-        return;
+        return false;
       }
       present(result.value);
+      return result.value.status === 'copy-saved';
     } catch (error) {
       setPending(false);
       setOutcome(null);
       setLocalMessage(actionableFileTruthMessage(error, 'Save a copy failed. The original is unchanged.'));
       setState('Save failed');
+      return false;
     }
   };
 
@@ -1485,6 +1493,24 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
   reloadFromDiskRef.current = reloadFromDisk;
 
   /**
+   * Ask before a dirty buffer is replaced. Clean notes reload at once; dirty
+   * ones get a confirm that names the discard and offers a copy first. The
+   * silent external-change path calls `reloadFromDisk` directly and never
+   * reaches here, because it only runs when the buffer is clean.
+   */
+  const requestReloadFromDisk = useCallback((documentId: string) => {
+    const existing = docsRef.current.get(documentId);
+    const dirty = existing?.dirty === true;
+    if (!reloadNeedsConfirm(dirty)) {
+      void reloadFromDisk(documentId);
+      return;
+    }
+    setReloadConfirm({ documentId, offerSaveCopy: true });
+  }, [reloadFromDisk]);
+  const requestReloadFromDiskRef = useRef(requestReloadFromDisk);
+  requestReloadFromDiskRef.current = requestReloadFromDisk;
+
+  /**
    * One step round the ring of page widths.
    *
    * Reached from the View menu and from Command and a bracket, which the editor
@@ -1800,7 +1826,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
       }
       case 'reload-from-disk': {
         const id = activeIdRef.current;
-        if (id) void reloadFromDiskRef.current(id);
+        if (id) requestReloadFromDiskRef.current(id);
         else setLocalMessage('Open a note first.');
         break;
       }
@@ -2158,6 +2184,32 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
         data-source-mode={sourceMode ? 'on' : undefined}
       >
         {shortcuts && <Shortcuts mac={platform === 'darwin'} onClose={() => setShortcuts(false)} />}
+        {reloadConfirm && (
+          <ReloadConfirmDialog
+            offerSaveCopy={reloadConfirm.offerSaveCopy}
+            onCancel={() => {
+              setReloadConfirm(null);
+              editorRef.current?.focus();
+            }}
+            onReload={() => {
+              const id = reloadConfirm.documentId;
+              setReloadConfirm(null);
+              void reloadFromDisk(id);
+            }}
+            onSaveCopy={() => {
+              const id = reloadConfirm.documentId;
+              setReloadConfirm(null);
+              void (async () => {
+                const kept = await saveCopy();
+                // Work is on the copy now; take the disk version into the
+                // original path without asking again.
+                if (kept) void reloadFromDisk(id);
+                else editorRef.current?.focus();
+              })();
+            }}
+          />
+        )}
+
         {tableDialog && (
           <TableDialog
             onClose={() => { setTableDialog(false); editorRef.current?.focus(); }}
@@ -2406,7 +2458,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
             {actions.includes('retry-save') && <button type="button" disabled={pending} onClick={() => void save()}>Retry save</button>}
             {actions.includes('reload') && (
               <button type="button" data-testid="reload-from-disk" disabled={pending}
-                onClick={() => { const id = activeIdRef.current; if (id) void reloadFromDisk(id); }}>
+                onClick={() => { const id = activeIdRef.current; if (id) requestReloadFromDisk(id); }}>
                 Reload from disk
               </button>
             )}
