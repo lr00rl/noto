@@ -16,6 +16,7 @@ import { Plugin, PluginKey, type EditorState, type Transaction } from 'prosemirr
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import type { Node as ProseNode } from 'prosemirror-model';
 import { guideRanges } from './indent-guides';
+import { TAB_MARKER_CLASS, tabRanges } from './tab-markers';
 
 // Prism resolves languages from a registry its component files write into, and
 // the order matters: several build on `clike` or `javascript`.
@@ -208,6 +209,16 @@ function decorationsIn(doc: ProseNode, from: number, to: number): Decoration[] {
         position + 1 + guide.from,
         position + 1 + guide.to,
         { style: guide.style },
+      ));
+    }
+    // A quiet arrow on every tab character, matching fence-enhance's visible
+    // tabs. The span wraps the tab itself so the file and the selection keep
+    // the character; only the paint is added.
+    for (const tab of tabRanges(node.textContent)) {
+      decorations.push(Decoration.inline(
+        position + 1 + tab.from,
+        position + 1 + tab.to,
+        { class: TAB_MARKER_CLASS },
       ));
     }
     for (const range of rangesFor(node)) {

@@ -197,6 +197,14 @@ export interface NotoSettingsV1 {
    */
   readonly codeIndentGuides: boolean;
   /**
+   * Mark each tab character inside a code block with a quiet arrow.
+   *
+   * On by default, completing the author's `fence-enhance` port: line numbers,
+   * language, copy, indent guides, and now the tab markers. Drawn on the tab
+   * itself, so a document gains no elements for lines that hold none.
+   */
+  readonly codeTabMarkers: boolean;
+  /**
    * Close a bracket or a quote as it is opened.
    *
    * On, as the author's Typora is set. It never pairs in the middle of a word,
@@ -282,6 +290,7 @@ export const DEFAULT_SETTINGS: NotoSettingsV1 = Object.freeze({
   remoteImages: true,
   codeLineNumbers: true,
   codeIndentGuides: true,
+  codeTabMarkers: true,
   autoPair: true,
   focusMode: false,
   typewriterMode: false,
