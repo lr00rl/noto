@@ -631,6 +631,13 @@ export function Preferences({
                   testId="setting-code-indent-guides"
                 />
                 <Switch
+                  label="Tab markers in code blocks"
+                  hint="A quiet arrow on every tab character, so a Makefile or a Go file reads as structure rather than as empty gaps."
+                  checked={settings.codeTabMarkers}
+                  onChange={(value) => onChange({ codeTabMarkers: value })}
+                  testId="setting-code-tab-markers"
+                />
+                <Switch
                   label="Follow changes made outside Noto"
                   hint="Another program edits the file and the note follows it, as one undoable step. A note with unsaved changes is never replaced this way: it asks."
                   checked={settings.reloadExternalChanges}

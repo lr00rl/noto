@@ -95,9 +95,8 @@ beside the code, which no longer wraps so the two stay in step; the language
 and a copy button share the corner and show while the pointer is over the
 block or the caret is in it. The numbers are not content: a selection never
 takes them and copying copies code. A switch turns them off, on by default as
-the author's Typora is set. The plugin's indent guides and tab markers are not
-ported; each needs a per-line element inside the fence, which the editor does
-not have, and they are listed with the plugins below.
+the author's Typora is set. Indent guides and tab markers followed; both are
+closed below.
 
 ## 5. Blocks did not share the text's left edge. Closed.
 
@@ -1228,20 +1227,38 @@ document; carrying a custom theme's stylesheet into the export rather than
 the reading-column defaults; and anything that would ship Pandoc inside the
 app. Pandoc stays optional, with an honest failure when it is missing.
 
+## 63. A tab in a fence was an empty gap. Closed.
+
+`fence-enhance`'s visible tabs put a quiet arrow on every `\t` inside a code
+block, the same mark CodeMirror's own demo uses. Indent guides already ruled
+the steps of a line's indentation; without the markers a tab still read as a
+hole, which is wrong for a Makefile, for Go that still uses tabs, and for any
+fence the author pasted from somewhere that did.
+
+Each tab is now a span carrying that arrow at the right of its own advance,
+painted by the highlighter that already rebuilds only the block that changed,
+so a document of space-indented Python pays nothing and a document of tabs
+pays one decoration per tab. The character stays in the file and in the
+selection; only the paint is added. A switch turns them off, on by default as
+the rest of the fence-enhance port is.
+
+With this, `fence-enhance` is complete: gutter, language, copy, indent guides,
+tab markers.
+
 # Where things stand
 
-## Plugins: eight of sixteen, in some form
+## Plugins: nine of sixteen, in some form
 
 Real ports: Title Shift, Markdown Padding. Native equivalents: `wider` is the
 width modes, `tree-guides` is the connector lines and the sticky folders,
 `fuzzy-search` is quick open with content search, `note-assistant` is quick
 open's link mode with wiki-link rendering, `fence-enhance` is the fence gutter
-with its language, its copy button and its indent guides, and `trail` is back and forward in the
-title bar and the Go menu, three notes each way. Not done: `sidenote`,
-`timeline`, `todo-manager`, `file-tags`, `code-viewer`, `drawio`, and
-`fence-enhance`'s tab markers; `recent-files` exists as a
-menu and a status strip rather than as the plugin's behaviour, and
-`remote-control` is infrastructure rather than a feature.
+with its language, its copy button, its indent guides and its tab markers, and
+`trail` is back and forward in the title bar and the Go menu, three notes each
+way. Not done: `sidenote`, `timeline`, `todo-manager`, `file-tags`,
+`code-viewer` and `drawio`; `recent-files` exists as a menu and a status strip
+rather than as the plugin's behaviour, and `remote-control` is infrastructure
+rather than a feature.
 
 ## Where Noto is ahead
 
@@ -1258,5 +1275,5 @@ Images first, because the gap was functional and a third of the vault was
 behind it; done, including `<img>` inside HTML. Then the prose scale, tables
 and inline code together, since they are one stylesheet and one pass with the
 theme open beside it; done. Then line numbers and tree icons; both done. The
-remaining plugins after that, in the order the author names them, with
-`fence-enhance`'s indent guides and tab markers among them.
+remaining plugins after that, in the order the author names them;
+`fence-enhance` itself is now complete.
