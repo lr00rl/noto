@@ -3,11 +3,11 @@
  *
  * Typora's Command-slash. The rendered page goes and a plain column of
  * markdown takes its place, coloured the way a fence is coloured, and the
- * reader edits the text directly. What is typed here goes into the document
- * a moment after each pause, through the same block-wise replacement a
- * transform plugin uses, so the outline, the word count, the dirty mark and
- * autosave all keep working, and every block that was not touched still
- * saves byte for byte.
+ * reader edits the text directly. What is typed here settles a moment after
+ * each pause: block changes through the same block-wise replacement a
+ * transform plugin uses, and gap-only (or other whole-buffer) changes through
+ * an explicit full-source escape, so the outline, the word count, the dirty
+ * mark and autosave keep working without rewriting provenance on every key.
  *
  * A textarea does the editing, over a coloured copy of the same text drawn
  * underneath it. The textarea's own text is invisible and only its caret

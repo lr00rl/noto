@@ -8,7 +8,7 @@
  */
 
 import { fromLf } from '../shared/markdown/v3/line-endings';
-import { sourceHasFinalNewline, sourceModeText } from './source-mode-text';
+import { sourceModeText } from './source-mode-text';
 import { PLAIN_FLAGS, type SearchFlags } from '../shared/search/pattern';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import type {
@@ -2546,7 +2546,7 @@ export function BootstrapFailure({ message }: { message: string }) {
   );
 }
 
-/** The source view over one editor: reads its text once, writes back block-wise. */
+/** The source view over one editor: reads its text once, settles block-wise or via source escape. */
 function SourceModeView({ editor, fileText, startBlock, registerFlush }: {
   editor: NotoEditor;
   fileText: string;
@@ -2558,17 +2558,13 @@ function SourceModeView({ editor, fileText, startBlock, registerFlush }: {
     fileText,
     reconstructed: editor.getMarkdown(),
     hasFinalNewline: editor.envelope.hasFinalNewline,
+    pendingSource: editor.pendingSourceMarkdown,
   }), [editor, fileText]);
   return (
     <SourceMode
       initialText={initial}
       startBlock={Math.max(0, startBlock)}
-      apply={(markdown) => {
-        // The trailing newline is an envelope fact, not a block. Keep it in
-        // sync so a save from source writes the same last byte the buffer shows.
-        editor.setEnvelope({ hasFinalNewline: sourceHasFinalNewline(markdown) });
-        return editor.replaceMarkdown(markdown);
-      }}
+      apply={(markdown) => editor.applySourceBuffer(markdown)}
       onLeave={(block) => editor.focusBlock(block)}
       registerFlush={registerFlush}
     />
