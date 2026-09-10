@@ -44,6 +44,7 @@ export function shortcutGroups(mac: boolean): Group[] {
         { keys: [shift(mac) + mod('L', mac)], what: 'Show or hide the rail.' },
         { keys: [shift(mac) + mod('O', mac)], what: 'The outline of this note. A heading folds with the arrow keys.' },
         { keys: ['Links'], what: "The rail's third view: what links here, what this links to, and what the vault's graph thinks is near." },
+        { keys: [shift(mac) + mod('T', mac)], what: 'Browse tags from every note\'s frontmatter, and open the notes that share one.' },
       ],
     },
     {

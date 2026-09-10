@@ -19,6 +19,7 @@ import {
   type WorkspaceTreeMenuRequestV1,
   type WorkspaceRevealRequestV1,
   type WorkspaceContentRequestV1,
+  type WorkspaceNotesByTagRequestV1,
   type WorkspaceEntryRequestV1,
   type WorkspaceExportRequestV1,
 } from '../../shared/workspace/v1/contracts';
@@ -31,6 +32,7 @@ import {
   isWorkspaceTreeMenuRequestV1,
   isWorkspaceRevealRequestV1,
   isWorkspaceContentRequestV1,
+  isWorkspaceNotesByTagRequestV1,
   isWorkspaceEntryRequestV1,
   isWorkspaceExportRequestV1,
 } from '../../shared/workspace/v1/validate';
@@ -121,6 +123,12 @@ export function registerWorkspaceHandlers(deps: {
     (request: WorkspaceContentRequestV1) => deps.session.searchContent(request.query, {
       caseSensitive: request.caseSensitive, wholeWord: request.wholeWord, regex: request.regex,
     }, request.scope));
+
+  register(WORKSPACE_CHANNELS.tagIndex, isWorkspaceRequestV1,
+    () => deps.session.tagIndex());
+
+  register(WORKSPACE_CHANNELS.notesByTag, isWorkspaceNotesByTagRequestV1,
+    (request: WorkspaceNotesByTagRequestV1) => deps.session.notesByTag(request.tag));
 
   // Rename, duplicate, trash and new folder. Main re-resolves the target and
   // checks it against the open folder at the moment it acts, so a row that has

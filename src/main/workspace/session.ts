@@ -12,6 +12,7 @@
  */
 
 import { GraphCache, linksFor } from './note-graph';
+import { buildTagIndex, notesForTag, type TagIndex } from './tag-index';
 import type { SearchFlags } from '../../shared/search/pattern';
 import path from 'node:path';
 import { access, cp, mkdir, readdir, realpath, rename, rm, stat, writeFile } from 'node:fs/promises';
@@ -29,6 +30,8 @@ import {
   type WorkspaceTreeMenuReplyV1,
   type WorkspaceOpenExternalReplyV1,
   type WorkspaceLinksReplyV1,
+  type WorkspaceTagIndexReplyV1,
+  type WorkspaceNotesByTagReplyV1,
 } from '../../shared/workspace/v1/contracts';
 import type {
   WorkspaceEntryActionV1,
@@ -107,6 +110,7 @@ export class WorkspaceSession {
    */
   private folderChosen = false;
   private indexCache: { root: string; reply: WorkspaceIndexReplyV1 } | null = null;
+  private tagIndexCache: { root: string; index: TagIndex } | null = null;
 
   constructor(
     private readonly createStore: () => FileTruthStoreV1,
@@ -380,6 +384,7 @@ export class WorkspaceSession {
     this.folderChosen = chosen;
     // A new folder invalidates the old index rather than serving it stale.
     this.indexCache = null;
+    this.tagIndexCache = null;
     await this.recentFolders?.remember(root);
     this.logger.log('workspace_folder_opened', {});
     const event = this.folderEvent();
@@ -1022,7 +1027,55 @@ export class WorkspaceSession {
    */
   /** Tell the renderer its listing is stale, without saying what changed. */
   announceTreeChanged(): void {
+    // A rename or new note can change which tags exist; drop the scan so the
+    // next Browse Tags sees the vault as it is now.
+    this.tagIndexCache = null;
     this.send(WORKSPACE_CHANNELS.treeChanged, { version: NOTO_WORKSPACE_VERSION });
+  }
+
+
+  /**
+   * Every tag the open vault's notes declare, with how many notes carry each.
+   *
+   * Built once per folder from the same file index quick open uses, and kept
+   * until the folder changes. The scan only reads frontmatter, so it stays
+   * cheaper than a content search of the same vault.
+   */
+  async tagIndex(): Promise<WorkspaceTagIndexReplyV1> {
+    const empty = (): WorkspaceTagIndexReplyV1 => ({
+      version: NOTO_WORKSPACE_VERSION, tags: [], truncated: false,
+    });
+    if (!this.folderRoot) return empty();
+    const index = await this.ensureTagIndex();
+    return {
+      version: NOTO_WORKSPACE_VERSION,
+      tags: index.tags.map((entry) => ({ tag: entry.tag, count: entry.notes.length })),
+      truncated: index.truncated,
+    };
+  }
+
+  /** Notes that carry one tag, matched case-insensitively. */
+  async notesByTag(tag: string): Promise<WorkspaceNotesByTagReplyV1> {
+    if (!this.folderRoot) {
+      return { version: NOTO_WORKSPACE_VERSION, tag, notes: [] };
+    }
+    const index = await this.ensureTagIndex();
+    const notes = notesForTag(index, tag).map((note) => ({
+      path: note.path,
+      relativePath: note.relativePath,
+      title: note.title,
+    }));
+    // Prefer the spelling the index first saw, so the panel's heading matches the chips.
+    const canonical = index.tags.find((entry) => entry.tag.toLowerCase() === tag.toLowerCase())?.tag ?? tag;
+    return { version: NOTO_WORKSPACE_VERSION, tag: canonical, notes };
+  }
+
+  private async ensureTagIndex(): Promise<TagIndex> {
+    if (this.tagIndexCache?.root === this.folderRoot) return this.tagIndexCache.index;
+    const files = await this.fileIndex();
+    const index = await buildTagIndex(files.entries);
+    if (this.folderRoot) this.tagIndexCache = { root: this.folderRoot, index };
+    return index;
   }
 
   async noteLinks(target: string): Promise<WorkspaceLinksReplyV1> {

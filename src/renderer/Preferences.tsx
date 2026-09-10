@@ -71,7 +71,7 @@ function SectionGlyph({ name }: { name: PreferencesSection }) {
 
 const SECTIONS: readonly { value: PreferencesSection; label: string; keywords: string }[] = [
   { value: 'appearance', label: 'Appearance', keywords: 'theme dark light text size line height width rail stylesheet css font always on top float window' },
-  { value: 'editor', label: 'Editor', keywords: 'spell check images brackets pairs focus typewriter save autosave line numbers guides reload external disk sync watch' },
+  { value: 'editor', label: 'Editor', keywords: 'spell check images brackets pairs focus typewriter save autosave line numbers guides reload external disk sync watch file tags frontmatter' },
   { value: 'markdown', label: 'Markdown', keywords: 'smart quotes dashes ellipsis punctuation typography syntax' },
   { value: 'images', label: 'Images', keywords: 'image picture paste drop screenshot assets folder copy relative path escape url upload picgo bucket' },
   { value: 'remote', label: 'Remote', keywords: 'remote control api token port script agent automation' },
@@ -629,6 +629,13 @@ export function Preferences({
                   checked={settings.todoCheckTime}
                   onChange={(value) => onChange({ todoCheckTime: value })}
                   testId="setting-todo-check-time"
+                />
+                <Switch
+                  label="File tags"
+                  hint="Chips for the tags in a note's frontmatter. Click one to open other notes that share it."
+                  checked={settings.fileTags}
+                  onChange={(value) => onChange({ fileTags: value })}
+                  testId="setting-file-tags"
                 />
                 <Switch
                   label="Indent guides in code blocks"

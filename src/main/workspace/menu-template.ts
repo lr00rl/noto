@@ -491,6 +491,8 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuItemConstru
     submenu: [
       command('Back', 'CmdOrCtrl+Alt+Left', 'navigate-back'),
       command('Forward', 'CmdOrCtrl+Alt+Right', 'navigate-forward'),
+      { type: 'separator' },
+      command('Browse Tags…', 'CmdOrCtrl+Shift+T', 'browse-tags'),
     ],
   };
 

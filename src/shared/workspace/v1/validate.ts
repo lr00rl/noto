@@ -24,6 +24,11 @@ import {
   MAX_PASTE_TEXT,
   WorkspaceLinkV1,
   WorkspaceLinksReplyV1,
+  WorkspaceTagIndexReplyV1,
+  WorkspaceTagSummaryV1,
+  WorkspaceNotesByTagRequestV1,
+  WorkspaceNotesByTagReplyV1,
+  WorkspaceTagNoteV1,
   WorkspaceRemoteEventV1,
   WorkspaceDirtyEventV1,
   WorkspaceTextRequestV1,
@@ -216,6 +221,48 @@ export function isWorkspaceLinksReplyV1(value: unknown): value is WorkspaceLinks
 export const isWorkspaceLinksResultV1 = (
   value: unknown, id: string,
 ): value is WorkspaceResultV1<WorkspaceLinksReplyV1> => isResult(value, id, isWorkspaceLinksReplyV1);
+
+function isWorkspaceTagSummaryV1(value: unknown): value is WorkspaceTagSummaryV1 {
+  return record(value) && exact(value, ['tag', 'count'])
+    && typeof value.tag === 'string' && value.tag.length > 0 && value.tag.length <= 128
+    && typeof value.count === 'number' && Number.isSafeInteger(value.count) && value.count >= 0;
+}
+
+export function isWorkspaceTagIndexReplyV1(value: unknown): value is WorkspaceTagIndexReplyV1 {
+  return record(value)
+    && exact(value, ['version', 'tags', 'truncated'])
+    && value.version === 1
+    && Array.isArray(value.tags) && value.tags.every(isWorkspaceTagSummaryV1)
+    && typeof value.truncated === 'boolean';
+}
+
+export const isWorkspaceTagIndexResultV1 = (
+  value: unknown, id: string,
+): value is WorkspaceResultV1<WorkspaceTagIndexReplyV1> => isResult(value, id, isWorkspaceTagIndexReplyV1);
+
+export function isWorkspaceNotesByTagRequestV1(value: unknown): value is WorkspaceNotesByTagRequestV1 {
+  return record(value) && exact(value, ['version', 'requestId', 'tag']) && value.version === 1
+    && typeof value.requestId === 'string' && requestId.test(value.requestId)
+    && typeof value.tag === 'string' && value.tag.length > 0 && value.tag.length <= 128;
+}
+
+function isWorkspaceTagNoteV1(value: unknown): value is WorkspaceTagNoteV1 {
+  return record(value) && exact(value, ['path', 'relativePath', 'title'])
+    && typeof value.path === 'string' && value.path.length > 0
+    && typeof value.relativePath === 'string' && typeof value.title === 'string';
+}
+
+export function isWorkspaceNotesByTagReplyV1(value: unknown): value is WorkspaceNotesByTagReplyV1 {
+  return record(value)
+    && exact(value, ['version', 'tag', 'notes'])
+    && value.version === 1
+    && typeof value.tag === 'string'
+    && Array.isArray(value.notes) && value.notes.every(isWorkspaceTagNoteV1);
+}
+
+export const isWorkspaceNotesByTagResultV1 = (
+  value: unknown, id: string,
+): value is WorkspaceResultV1<WorkspaceNotesByTagReplyV1> => isResult(value, id, isWorkspaceNotesByTagReplyV1);
 
 export function isWorkspaceTextRequestV1(value: unknown): value is WorkspaceTextRequestV1 {
   return record(value) && exact(value, ['version', 'requestId']) && value.version === 1
