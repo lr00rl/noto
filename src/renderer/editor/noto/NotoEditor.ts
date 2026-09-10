@@ -33,11 +33,17 @@ import { blockToMarkdown } from '../../../shared/markdown/v3/pm/to-mdast';
 import { parseSingleBlock, splitBlocks, type BlockSpan } from '../../../shared/markdown/v3/blocks';
 import { parseDocumentSpans } from './parse-document';
 import { toLf } from '../../../shared/markdown/v3/line-endings';
-import type {
-  NotoDocumentWire,
-  NotoTargetEnvelope,
-  NotoTransaction,
+import {
+  NOTO_MARKDOWN_VERSION,
+  type NotoDocumentWire,
+  type NotoTargetEnvelope,
+  type NotoTransaction,
 } from '../../../shared/markdown/v3/contracts';
+import {
+  encodeSourceBuffer,
+  sourceHasFinalNewline,
+  sourceSettleKind,
+} from '../../source-mode-text';
 import { captureMarkdown, captureTransaction, type CaptureStats, type PristineBlock } from './capture';
 import type { NotoEditorPort } from './NotoEditorPort';
 import { createOriginPlugin, getBlockOrigins, rebaseOrigins } from './origin-plugin';
@@ -159,6 +165,14 @@ export class NotoEditor implements NotoEditorPort {
    * Null means whatever the file already is.
    */
   private target: NotoTargetEnvelope | null = null;
+  /**
+   * LF buffer waiting for a `mode: 'source'` save.
+   *
+   * Set only when Source Mode settled a change the block model cannot express
+   * (gap / leading / extra trailing). Cleared on commit or when a later settle
+   * no longer needs the escape. Null means capture stays on the blocks path.
+   */
+  private pendingSource: string | null = null;
   private imageContext: ImageContext;
   /** The pictures on screen, so a changed context can redraw them and nothing else. */
   private readonly imageViews = new Set<Refreshable>();
@@ -568,7 +582,9 @@ export class NotoEditor implements NotoEditorPort {
     // A pending change to the file's endings keeps it dirty even when the
     // document itself is back where it started: there is still something to
     // write, and it is not in the document.
-    const next = this.dirty ? this.target !== null || !view.state.doc.eq(this.baselineDoc) : true;
+    const next = this.dirty
+      ? this.target !== null || this.pendingSource !== null || !view.state.doc.eq(this.baselineDoc)
+      : true;
     if (next === this.dirty) return;
     this.dirty = next;
     this.options.onDirtyChange?.(next);
@@ -979,6 +995,64 @@ export class NotoEditor implements NotoEditorPort {
   }
 
   /**
+   * LF buffer held for a full-source save, when Source Mode took the escape.
+   *
+   * The source view prefers this over a block re-join so a gap-only edit is
+   * still what the reader sees if they leave and re-enter before saving.
+   */
+  get pendingSourceMarkdown(): string | null {
+    return this.pendingSource;
+  }
+
+  /**
+   * Settle Source Code Mode text into the document.
+   *
+   * Prefers block-wise `replaceMarkdown` so untouched blocks keep provenance.
+   * When the buffer's gaps (or leading / extra trailing) differ from the
+   * accepted file, keeps the LF buffer for a `mode: 'source'` capture instead
+   * of pretending the block model absorbed them. Final-newline-only changes
+   * stay on the envelope and never take the escape.
+   */
+  applySourceBuffer(markdown: string): boolean {
+    if (this.readOnly) return false;
+    const envelopeChanged = this.setEnvelope({ hasFinalNewline: sourceHasFinalNewline(markdown) });
+    const blockReplaced = this.replaceMarkdown(markdown);
+    const kind = sourceSettleKind({
+      blockReplaced,
+      buffer: markdown,
+      currentDocumentText: this.document.text,
+    });
+
+    if (kind === 'source') {
+      const lf = toLf(markdown);
+      if (this.pendingSource === lf) return blockReplaced || envelopeChanged;
+      this.pendingSource = lf;
+      if (!this.dirty) {
+        this.dirty = true;
+        this.options.onDirtyChange?.(true);
+      }
+      this.options.onDocumentChanged?.();
+      return true;
+    }
+
+    if (this.pendingSource !== null) {
+      this.pendingSource = null;
+      // May have been dirty only for the escape; drop the mark when the
+      // document and envelope are back where they started.
+      if (this.dirty) {
+        const view = this.view;
+        const still = this.target !== null
+          || (view !== null && !view.state.doc.eq(this.baselineDoc));
+        if (!still) {
+          this.dirty = false;
+          this.options.onDirtyChange?.(false);
+        }
+      }
+    }
+    return blockReplaced || envelopeChanged;
+  }
+
+  /**
    * Plugin editor ABI. Styling only, so it cannot reach the document.
    */
   setSemanticFocus(enabled: boolean): void {
@@ -1013,6 +1087,27 @@ export class NotoEditor implements NotoEditorPort {
       throw new Error('IME_COMPOSITION_ACTIVE: finish the current word before saving');
     }
 
+    if (this.pendingSource !== null) {
+      const lineEnding = this.envelope.lineEnding === 'mixed'
+        ? this.document.envelope.lineEnding
+        : this.envelope.lineEnding;
+      return {
+        transaction: {
+          version: NOTO_MARKDOWN_VERSION,
+          mode: 'source',
+          documentId: this.document.documentId,
+          revisionId: this.document.revisionId,
+          expectedSourceSha256: this.document.envelope.sourceSha256,
+          sourceBytes: encodeSourceBuffer({
+            markdown: this.pendingSource,
+            lineEnding,
+            bom: this.document.envelope.bom,
+          }),
+        },
+        stats: { reused: 0, serialized: view.state.doc.childCount },
+      };
+    }
+
     return captureTransaction({
       doc: view.state.doc,
       origins: getBlockOrigins(view.state),
@@ -1033,6 +1128,7 @@ export class NotoEditor implements NotoEditorPort {
     if (!view) return;
 
     this.document = document;
+    this.pendingSource = null;
     /*
      * Clear the pending change only when this document is what it asked for.
      *
@@ -1085,6 +1181,7 @@ export class NotoEditor implements NotoEditorPort {
     // A newer reload or a teardown may have landed while the worker ran.
     if (this.view !== view) return;
     this.document = document;
+    this.pendingSource = null;
     const doc = this.buildDoc(document, spans);
     this.baselineDoc = doc;
     view.updateState(EditorState.create({ doc, plugins: this.plugins(document) }));
