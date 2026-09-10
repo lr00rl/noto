@@ -307,6 +307,7 @@ export function buildMenuTemplate(options: MenuTemplateOptions): MenuItemConstru
       },
       { type: 'separator' },
       command('Code Fences', 'CmdOrCtrl+Alt+C', 'block-code'),
+      command('Timeline', undefined, 'insert-timeline'),
       command('Math Block', 'CmdOrCtrl+Alt+B', 'block-math'),
       command('Quote', 'CmdOrCtrl+Alt+Q', 'block-quote'),
       command('Ordered List', 'CmdOrCtrl+Alt+O', 'block-ordered-list'),

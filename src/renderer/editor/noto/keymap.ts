@@ -48,6 +48,7 @@ import {
 
 import { TextSelection, type Command, type EditorState, type Plugin, type Transaction } from 'prosemirror-state';
 import { notoSchema } from '../../../shared/markdown/v3/pm/schema';
+import { TIMELINE_LANGUAGE, TIMELINE_TEMPLATE } from './timeline';
 import {
   insertFootnote,
   insertFrontmatter,
@@ -519,6 +520,38 @@ export function insertAlert(kind: 'NOTE' | 'TIP' | 'IMPORTANT' | 'WARNING' | 'CA
   };
 }
 
+
+/**
+ * Insert a `timeline` fence with a small template the reader can fill.
+ *
+ * Ordinary markdown in a fence: the file stays friendly without the drawing.
+ */
+export const insertTimeline: Command = (state, dispatch) => {
+  const { $from } = state.selection;
+  // Inside an existing fence, just set its language rather than nesting.
+  if ($from.parent.type === nodes.code_block) {
+    if (!dispatch) return true;
+    const pos = $from.before($from.depth);
+    dispatch(state.tr.setNodeMarkup(pos, undefined, {
+      ...$from.parent.attrs,
+      lang: TIMELINE_LANGUAGE,
+    }));
+    return true;
+  }
+  if (!dispatch) return true;
+  const content = TIMELINE_TEMPLATE.length > 0
+    ? state.schema.text(TIMELINE_TEMPLATE)
+    : undefined;
+  const block = nodes.code_block.create({ lang: TIMELINE_LANGUAGE }, content);
+  const tr = state.tr.replaceSelectionWith(block);
+  // Caret near the start of the fence so the next keystroke edits the source.
+  const inserted = tr.selection.from;
+  const start = Math.min(inserted + 1, tr.doc.content.size);
+  tr.setSelection(TextSelection.create(tr.doc, start));
+  dispatch(tr.scrollIntoView());
+  return true;
+};
+
 export const EDITOR_COMMANDS: Readonly<Record<string, Command>> = {
   'block-paragraph': setBlockType(nodes.paragraph),
   'block-heading-1': setBlockType(nodes.heading, { level: 1 }),
@@ -530,6 +563,7 @@ export const EDITOR_COMMANDS: Readonly<Record<string, Command>> = {
   'block-heading-up': shiftHeading(true),
   'block-heading-down': shiftHeading(false),
   'block-code': setBlockType(nodes.code_block),
+  'insert-timeline': insertTimeline,
   'block-math': setBlockType(nodes.math_block),
   'block-quote': wrapIn(nodes.blockquote),
   'block-ordered-list': wrapInList(nodes.ordered_list),

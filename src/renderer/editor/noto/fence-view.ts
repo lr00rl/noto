@@ -20,6 +20,7 @@ import type { EditorView, NodeView } from 'prosemirror-view';
 import { digitsForLineCount, gutterText, lineCount } from './fence-gutter';
 import { supportedLanguages } from './highlight';
 import { DiagramFrame, isDiagramLanguage } from './diagram-frame';
+import { TimelineFrame, isTimelineLanguage } from './timeline';
 import { copyThroughSelection } from './clipboard';
 
 /** How long "Copied" stays before the button says "Copy" again. */
@@ -60,6 +61,8 @@ export class FenceView implements NodeView {
   private lines = 0;
   /** Present while the fence is a diagram, which its language decides. */
   private diagram: DiagramFrame | null = null;
+  /** Present while the fence is a timeline. */
+  private timeline: TimelineFrame | null = null;
   private copiedTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
@@ -145,7 +148,8 @@ export class FenceView implements NodeView {
   stopEvent(event: Event): boolean {
     return event.target instanceof Node
       && (this.tools.contains(event.target) || this.gutter.contains(event.target)
-        || (this.diagram !== null && this.diagram.dom.contains(event.target)));
+        || (this.diagram !== null && this.diagram.dom.contains(event.target))
+        || (this.timeline !== null && this.timeline.dom.contains(event.target)));
   }
 
   /** Which line a vertical offset inside the gutter falls on, counted from zero. */
@@ -175,6 +179,7 @@ export class FenceView implements NodeView {
   destroy(): void {
     if (this.copiedTimer !== null) clearTimeout(this.copiedTimer);
     this.diagram?.destroy();
+    this.timeline?.destroy();
   }
 
   /** Write the field's value into the node, as one undoable change. */
@@ -207,6 +212,19 @@ export class FenceView implements NodeView {
     } else if (this.diagram !== null) {
       this.diagram.destroy();
       this.diagram = null;
+    }
+
+    // A timeline fence paints a chronology beside the source; a press on the
+    // drawing puts the caret at the top of the source, as mermaid does.
+    if (isTimelineLanguage(lang)) {
+      if (this.timeline === null) {
+        this.timeline = new TimelineFrame(() => this.caretToLine(0));
+        this.dom.append(this.timeline.dom);
+      }
+      this.timeline.render(this.node.textContent);
+    } else if (this.timeline !== null) {
+      this.timeline.destroy();
+      this.timeline = null;
     }
 
     // Recounted on every update and rewritten only when the count moves, so

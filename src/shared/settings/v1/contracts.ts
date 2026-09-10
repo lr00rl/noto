@@ -212,6 +212,13 @@ export interface NotoSettingsV1 {
    */
   readonly codeTabMarkers: boolean;
   /**
+   * Draw a `timeline` fence as a vertical chronology.
+   *
+   * On by default, matching the author's Typora timeline plugin. Off leaves
+   * the fence as ordinary source.
+   */
+  readonly timelines: boolean;
+  /**
    * Close a bracket or a quote as it is opened.
    *
    * On, as the author's Typora is set. It never pairs in the middle of a word,
@@ -316,6 +323,7 @@ export const DEFAULT_SETTINGS: NotoSettingsV1 = Object.freeze({
   codeLineNumbers: true,
   codeIndentGuides: true,
   codeTabMarkers: true,
+  timelines: true,
   autoPair: true,
   todoCheckTime: true,
   focusMode: false,

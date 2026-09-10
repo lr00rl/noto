@@ -1940,6 +1940,129 @@
   > .noto-diagram { border-top: 0; padding: 2px 0; }
 }
 
+/* Timelines --------------------------------------------------------------
+ *
+ * A `timeline` fence draws as a vertical chronology. Source stays in the
+ * file; while the caret is elsewhere only the drawing shows, as mermaid
+ * does. Off in Preferences leaves the fence as ordinary source.
+ */
+.ProseMirror pre .noto-timeline-frame {
+  grid-column: 1 / -1;
+  position: relative;
+  min-height: 32px;
+  border-top: 1px solid var(--hairline);
+  padding: 12px 14px;
+  background: var(--paper);
+  font: 13px tokens.$ui;
+  white-space: normal;
+  cursor: text;
+  user-select: none;
+  color: var(--ink);
+}
+.ProseMirror pre .noto-timeline-status {
+  color: var(--danger);
+  font: 12px tokens.$ui;
+}
+.ProseMirror pre .noto-timeline-frame:not([data-state='failed']) .noto-timeline-status { display: none; }
+
+.noto-timeline {
+  padding: 4px 8px 12px 8px;
+}
+.noto-timeline-title {
+  font-size: 1.25em;
+  font-weight: 700;
+  color: var(--ink-strong);
+  margin-bottom: 0.75em;
+  white-space: break-spaces;
+  word-break: break-word;
+}
+.noto-timeline-content {
+  display: grid;
+  grid-template-columns: 3px calc(100% - 3px);
+}
+.noto-timeline-line {
+  position: relative;
+  background-color: color-mix(in srgb, var(--accent) 55%, var(--hairline));
+}
+.noto-timeline-circle {
+  position: absolute;
+  top: 0.35em;
+  left: 50%;
+  width: 11px !important;
+  height: 11px !important;
+  border-radius: 50%;
+  background-color: var(--accent);
+  transform: translateX(-50%);
+  box-shadow: 0 0 0 2px var(--paper);
+}
+.noto-timeline-wrapper {
+  margin-left: 1em;
+  text-align: left;
+}
+.noto-timeline-time {
+  font-size: 1.05em;
+  font-weight: 700;
+  color: var(--accent);
+  white-space: break-spaces;
+  word-break: break-word;
+}
+.noto-timeline-event {
+  margin-top: 0.55em;
+  margin-bottom: 1.6em;
+  white-space: break-spaces;
+  word-break: break-word;
+  color: var(--ink);
+}
+.noto-timeline-wrapper:last-child .noto-timeline-event { margin-bottom: 0; }
+.noto-timeline-event > * + * { margin-top: 0.35em; }
+.noto-timeline-event h3,
+.noto-timeline-event h4,
+.noto-timeline-event h5,
+.noto-timeline-event h6 {
+  margin: 0.4em 0 0.2em;
+  font-weight: 650;
+  color: var(--ink-strong);
+}
+.noto-timeline-event ul,
+.noto-timeline-event ol {
+  margin: 0.2em 0;
+  padding-left: 1.4em;
+}
+.noto-timeline-event blockquote {
+  margin: 0.3em 0;
+  padding-left: 0.7em;
+  border-left: 2px solid var(--hairline);
+  color: var(--muted);
+}
+.noto-timeline-task {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45em;
+  padding-left: 2px;
+  margin: 0.15em 0;
+}
+.noto-timeline-task input { margin-top: 0.2em; }
+
+:root:not([data-timelines='off']) .ProseMirror pre.noto-fence[data-lang='timeline']:not(.noto-active-block):not(.noto-active-block *) {
+  border-color: transparent;
+  background: transparent;
+
+  > .noto-fence-gutter { display: none; }
+  > .noto-fence-code {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  > .noto-timeline-frame { border-top: 0; padding: 2px 0; }
+}
+
+:root[data-timelines='off'] .ProseMirror pre .noto-timeline-frame {
+  display: none;
+}
+
 /* Typora's folder is a solid shape and its file an outline; a tree of thin
    outlines read as wire. The fill is the glyph's own colour at a wash so the
    open folder's flap still shows as a line through it. */

@@ -251,6 +251,7 @@ export const WORKSPACE_MENU_COMMANDS = [
   'insert-toc',
   'insert-frontmatter',
   'insert-link-reference',
+  'insert-timeline',
   'reload-from-disk',
   'toggle-always-on-top',
   'toggle-read-only',

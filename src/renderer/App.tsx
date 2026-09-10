@@ -533,9 +533,10 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
     root.dataset.codeIndentGuides = settings.codeIndentGuides ? 'on' : 'off';
     root.dataset.codeTabMarkers = settings.codeTabMarkers ? 'on' : 'off';
     root.dataset.sidenotes = settings.sidenotes ? 'on' : 'off';
+    root.dataset.timelines = settings.timelines ? 'on' : 'off';
     root.dataset.focusMode = settings.focusMode ? 'on' : 'off';
   }, [settings.fontSize, settings.lineHeight, settings.widthMode, settings.proseFace, settings.codeLineNumbers,
-    settings.codeIndentGuides, settings.codeTabMarkers, settings.sidenotes, settings.focusMode]);
+    settings.codeIndentGuides, settings.codeTabMarkers, settings.sidenotes, settings.timelines, settings.focusMode]);
 
   /**
    * The user's own stylesheet, layered over the theme.

@@ -124,6 +124,9 @@ export function coerceSettings(value: unknown): NotoSettingsV1 {
     codeTabMarkers: typeof value.codeTabMarkers === 'boolean'
       ? value.codeTabMarkers
       : DEFAULT_SETTINGS.codeTabMarkers,
+    timelines: typeof value.timelines === 'boolean'
+      ? value.timelines
+      : DEFAULT_SETTINGS.timelines,
     autoPair: typeof value.autoPair === 'boolean' ? value.autoPair : DEFAULT_SETTINGS.autoPair,
     todoCheckTime: typeof value.todoCheckTime === 'boolean'
       ? value.todoCheckTime

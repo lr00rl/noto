@@ -652,6 +652,13 @@ export function Preferences({
                   testId="setting-code-tab-markers"
                 />
                 <Switch
+                  label="Timelines"
+                  hint="Draws a timeline fence as a vertical chronology. Off leaves the fence as source."
+                  checked={settings.timelines}
+                  onChange={(value) => onChange({ timelines: value })}
+                  testId="setting-timelines"
+                />
+                <Switch
                   label="Follow changes made outside Noto"
                   hint="Another program edits the file and the note follows it, as one undoable step. A note with unsaved changes is never replaced this way: it asks."
                   checked={settings.reloadExternalChanges}
