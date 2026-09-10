@@ -660,8 +660,10 @@ export interface WorkspaceLinkV1 {
  * What the vault's note-assistant graph knows about one note.
  *
  * `available` is false when the vault has no graph; `known` is false when
- * it has one that has not met this note. The lists are empty in both cases,
- * and the renderer says which of the two it is.
+ * it has one that has not met this note (common for `moc: true` hubs). When
+ * unknown, `backlinks` / `related` may still be filled by scanning other
+ * notes' edges that point at this path; outbound `links` stay empty so the
+ * renderer can seed them from the open note. Empty Related is omitted in UI.
  */
 /** One tag as the vault's notes declare it, with how many notes carry it. */
 export interface WorkspaceTagSummaryV1 {

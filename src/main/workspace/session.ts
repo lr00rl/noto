@@ -11,7 +11,7 @@
  * request came from the menu, the renderer, the dock, or a file association.
  */
 
-import { GraphCache, linksFor } from './note-graph';
+import { GraphCache, linksForNote } from './note-graph';
 import { buildTagIndex, notesForTag, type TagIndex } from './tag-index';
 import type { SearchFlags } from '../../shared/search/pattern';
 import path from 'node:path';
@@ -1172,18 +1172,31 @@ export class WorkspaceSession {
       return empty(true, false, graph.generatedAt);
     }
     const relative = path.relative(realRoot, real).split(path.sep).join('/');
-    const found = linksFor(graph, relative);
-    if (!found) {
-      this.logger.log('note_links', { outcome: 'unknown' });
-      return empty(true, false, graph.generatedAt);
-    }
-    this.logger.log('note_links', {
-      outcome: 'found', backlinks: found.backlinks.length, links: found.links.length, related: found.related.length,
-    });
+    const { known, links: found } = linksForNote(graph, relative);
     const absolute = (link: { relativePath: string; title: string }) => ({
       path: path.join(root, ...link.relativePath.split('/')),
       relativePath: link.relativePath,
       title: link.title,
+    });
+    if (!known) {
+      const derived = found.backlinks.length + found.related.length;
+      this.logger.log('note_links', {
+        outcome: derived > 0 ? 'derived' : 'unknown',
+        backlinks: found.backlinks.length,
+        related: found.related.length,
+      });
+      return {
+        version: NOTO_WORKSPACE_VERSION,
+        available: true,
+        known: false,
+        generatedAt: graph.generatedAt,
+        backlinks: found.backlinks.map(absolute),
+        links: [],
+        related: found.related.map(absolute),
+      };
+    }
+    this.logger.log('note_links', {
+      outcome: 'found', backlinks: found.backlinks.length, links: found.links.length, related: found.related.length,
     });
     return {
       version: NOTO_WORKSPACE_VERSION,
