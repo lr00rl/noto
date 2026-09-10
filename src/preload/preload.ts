@@ -90,6 +90,7 @@ import {
 import type {
   NotoWorkspaceApiV1,
   WorkspaceDocumentEventV1,
+  WorkspaceCodeViewEventV1,
   WorkspaceMenuEventV1,
   WorkspacePasteEventV1,
   WorkspaceRemoteEventV1,
@@ -131,6 +132,7 @@ import type {
 import { NOTO_WORKSPACE_VERSION, WORKSPACE_CHANNELS } from '../shared/workspace/v1/contracts';
 import {
   isWorkspaceDocumentEventV1,
+  isWorkspaceCodeViewEventV1,
   isWorkspaceMenuEventV1,
   isWorkspacePasteEventV1,
   isWorkspaceRemoteEventV1,
@@ -378,6 +380,8 @@ const workspaceApi: NotoWorkspaceApiV1 = Object.freeze({
     subscribe(WORKSPACE_CHANNELS.folderChanged, isWorkspaceFolderEventV1, listener),
   onDocumentOpened: (listener: (event: WorkspaceDocumentEventV1) => void) =>
     subscribe(WORKSPACE_CHANNELS.documentOpened, isWorkspaceDocumentEventV1, listener),
+  onCodeViewChanged: (listener: (event: WorkspaceCodeViewEventV1) => void) =>
+    subscribe(WORKSPACE_CHANNELS.codeViewChanged, isWorkspaceCodeViewEventV1, listener),
   onDocumentClosed: (listener: (event: WorkspaceClosedEventV1) => void) =>
     subscribe(WORKSPACE_CHANNELS.documentClosed, isWorkspaceClosedEventV1, listener),
   onTabsChanged: (listener: (event: WorkspaceTabsEventV1) => void) =>

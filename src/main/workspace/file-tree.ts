@@ -14,6 +14,7 @@
 
 import { readdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { isViewableCodeFile } from '../../shared/code-viewer/languages';
 
 export interface FileTreeEntryV1 {
   readonly name: string;
@@ -115,6 +116,11 @@ export async function listDirectory(
   root: string,
   target: string,
   order: TreeSortV1 = 'name',
+  /**
+   * When true, list the non-Markdown text/code files the code viewer can open.
+   * Off keeps the tree Markdown-only, which is how it was before the viewer.
+   */
+  includeCode = false,
 ): Promise<FileTreeEntryV1[]> {
   const realRoot = await resolved(root);
   const realTarget = await resolved(target);
@@ -151,8 +157,11 @@ export async function listDirectory(
 
     if (kind === 'directory') {
       if (SKIPPED_DIRECTORIES.has(entry.name)) continue;
-    } else if (!MARKDOWN.has(path.extname(entry.name).toLowerCase())) {
-      continue;
+    } else {
+      const ext = path.extname(entry.name).toLowerCase();
+      const markdown = MARKDOWN.has(ext);
+      // `.txt` is editable Markdown here; do not also offer it as code.
+      if (!markdown && !(includeCode && isViewableCodeFile(entry.name))) continue;
     }
 
     let modifiedMs = 0;

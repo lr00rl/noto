@@ -127,6 +127,9 @@ export function coerceSettings(value: unknown): NotoSettingsV1 {
     timelines: typeof value.timelines === 'boolean'
       ? value.timelines
       : DEFAULT_SETTINGS.timelines,
+    codeViewer: typeof value.codeViewer === 'boolean'
+      ? value.codeViewer
+      : DEFAULT_SETTINGS.codeViewer,
     autoPair: typeof value.autoPair === 'boolean' ? value.autoPair : DEFAULT_SETTINGS.autoPair,
     todoCheckTime: typeof value.todoCheckTime === 'boolean'
       ? value.todoCheckTime
@@ -242,8 +245,10 @@ export function isSettingsReplyV1(value: unknown): value is SettingsReplyV1 {
     && typeof settings.codeLineNumbers === 'boolean'
     && typeof settings.codeIndentGuides === 'boolean'
     && typeof settings.codeTabMarkers === 'boolean'
+    && typeof settings.timelines === 'boolean'
+    && typeof settings.codeViewer === 'boolean'
     && typeof settings.sidenotes === 'boolean'
-
+    && typeof settings.fileTags === 'boolean'
     && typeof settings.autoPair === 'boolean'
     && typeof settings.todoCheckTime === 'boolean'
     && typeof settings.focusMode === 'boolean'

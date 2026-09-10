@@ -18,6 +18,7 @@ async function workspace(): Promise<string> {
   await writeFile(path.join(root, 'alpha.md'), '# Alpha\n', 'utf8');
   await writeFile(path.join(root, 'notes.txt'), 'plain\n', 'utf8');
   await writeFile(path.join(root, 'image.png'), 'not markdown\n', 'utf8');
+  await writeFile(path.join(root, 'sample.py'), 'print(1)\n', 'utf8');
   await writeFile(path.join(root, '.hidden.md'), 'secret\n', 'utf8');
   await mkdir(path.join(root, 'chapters'));
   await writeFile(path.join(root, 'chapters', 'one.md'), '# One\n', 'utf8');
@@ -33,6 +34,16 @@ describe('listing a workspace folder', () => {
     expect(entries.map((entry) => entry.name))
       .toEqual(['chapters', 'alpha.md', 'beta.md', 'notes.txt']);
     expect(entries[0].kind).toBe('directory');
+  });
+
+
+  it('lists viewable code files when asked', async () => {
+    const root = await workspace();
+    const without = (await listDirectory(root, root)).map((entry) => entry.name);
+    expect(without).not.toContain('sample.py');
+    const withCode = (await listDirectory(root, root, 'name', true)).map((entry) => entry.name);
+    expect(withCode).toContain('sample.py');
+    expect(withCode).not.toContain('image.png');
   });
 
   it('leaves out files the editor cannot open', async () => {

@@ -659,6 +659,13 @@ export function Preferences({
                   testId="setting-timelines"
                 />
                 <Switch
+                  label="Code viewer"
+                  hint="Open non-Markdown text and code files as a read-only highlighted pane. The original file is never modified."
+                  checked={settings.codeViewer}
+                  onChange={(value) => onChange({ codeViewer: value })}
+                  testId="setting-code-viewer"
+                />
+                <Switch
                   label="Follow changes made outside Noto"
                   hint="Another program edits the file and the note follows it, as one undoable step. A note with unsaved changes is never replaced this way: it asks."
                   checked={settings.reloadExternalChanges}

@@ -37,3 +37,31 @@ describe('the order of a folder', () => {
     expect(sortEntries(same, 'modified').map((row) => row.name)).toEqual(['a.md', 'b.md']);
   });
 });
+
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach } from 'vitest';
+import { listDirectory } from '../../src/main/workspace/file-tree';
+
+const roots: string[] = [];
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
+});
+
+describe('listing a folder', () => {
+  it('hides code files until includeCode is asked for', async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'noto-tree-'));
+    roots.push(root);
+    await writeFile(path.join(root, 'note.md'), '# hi\n', 'utf8');
+    await writeFile(path.join(root, 'main.ts'), 'console.log(1)\n', 'utf8');
+    await writeFile(path.join(root, 'photo.png'), 'not really', 'utf8');
+    await mkdir(path.join(root, 'src'));
+
+    const plain = await listDirectory(root, root, 'name', false);
+    expect(plain.map((row) => row.name).sort()).toEqual(['note.md', 'src']);
+
+    const withCode = await listDirectory(root, root, 'name', true);
+    expect(withCode.map((row) => row.name).sort()).toEqual(['main.ts', 'note.md', 'src']);
+  });
+});

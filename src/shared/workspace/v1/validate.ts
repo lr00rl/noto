@@ -50,6 +50,8 @@ import type {
   WorkspaceMenuEventV1,
   WorkspaceOpenPathRequestV1,
   WorkspaceOpenReplyV1,
+  WorkspaceCodeViewV1,
+  WorkspaceCodeViewEventV1,
   WorkspaceRecentReplyV1,
   WorkspaceRequestV1,
   WorkspaceResultV1,
@@ -167,9 +169,27 @@ function isResult<T>(value: unknown, expectedRequestId: string,
     && value.error.message.length <= 2048;
 }
 
+function isCodeView(value: unknown): value is WorkspaceCodeViewV1 {
+  return record(value) && exact(value, ['path', 'name', 'language', 'content', 'notice', 'truncated'])
+    && typeof value.path === 'string' && value.path.length > 0 && value.path.length <= 4096
+    && typeof value.name === 'string' && value.name.length > 0 && value.name.length <= 512
+    && typeof value.language === 'string' && value.language.length <= 64
+    && typeof value.content === 'string' && value.content.length <= 5_000_000
+    && (value.notice === null || (typeof value.notice === 'string' && value.notice.length <= 512))
+    && typeof value.truncated === 'boolean';
+}
+
 function isOpenReply(value: unknown): value is WorkspaceOpenReplyV1 {
-  return record(value) && exact(value, ['version', 'opened']) && value.version === 1
-    && (value.opened === null || isFileTruthOpenReplyV1(value.opened));
+  if (!record(value) || value.version !== 1) return false;
+  if (exact(value, ['version', 'opened'])) {
+    return value.opened === null || isFileTruthOpenReplyV1(value.opened);
+  }
+  return exact(value, ['version', 'codeView']) && isCodeView(value.codeView);
+}
+
+export function isWorkspaceCodeViewEventV1(value: unknown): value is WorkspaceCodeViewEventV1 {
+  return record(value) && exact(value, ['version', 'codeView']) && value.version === 1
+    && (value.codeView === null || isCodeView(value.codeView));
 }
 
 function isSaveAsReply(value: unknown): value is WorkspaceSaveAsReplyV1 {

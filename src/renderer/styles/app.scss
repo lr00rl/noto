@@ -2513,3 +2513,98 @@ button:disabled { color: var(--muted); opacity: 0.7; }
   border: 1px solid var(--rule);
   border-radius: 4px;
 }
+
+
+/* Read-only code viewer for non-Markdown files (typora-plugin-lite code-viewer). */
+.code-viewer {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: var(--bg, #fff);
+  color: var(--text, inherit);
+}
+
+.code-viewer-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  background: var(--bg, #fff);
+  border-bottom: 1px solid var(--rule, rgba(128, 128, 128, 0.25));
+  user-select: none;
+}
+
+.code-viewer-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4caf50;
+  flex-shrink: 0;
+}
+
+.code-viewer-name {
+  font-weight: 600;
+}
+
+.code-viewer-lang {
+  opacity: 0.7;
+}
+
+.code-viewer-ro {
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--rule, rgba(128, 128, 128, 0.3));
+  opacity: 0.7;
+}
+
+.code-viewer-code {
+  margin: 0;
+  padding: 12px 0 40px;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 0.9em;
+  line-height: 1.55;
+  tab-size: 4;
+  flex: 1 0 auto;
+}
+
+.code-viewer-row {
+  display: flex;
+  white-space: pre;
+}
+
+.code-viewer-row:hover {
+  background: rgba(128, 128, 128, 0.06);
+}
+
+.code-viewer-row::before {
+  box-sizing: content-box;
+  content: attr(data-ln);
+  flex: 0 0 auto;
+  min-width: var(--code-viewer-gutter-ch, 4ch);
+  padding: 0 1em 0 0.6em;
+  text-align: right;
+  opacity: 0.4;
+  border-right: 1px solid var(--rule, rgba(128, 128, 128, 0.15));
+  margin-right: 1em;
+}
+
+.code-viewer-src {
+  flex: 1 1 auto;
+}
+
+.code-viewer-src:empty::after {
+  content: '\200b';
+}
+
+.code-viewer-notice {
+  padding: 10px 16px;
+  font-size: 12px;
+  opacity: 0.7;
+  border-top: 1px dashed var(--rule, rgba(128, 128, 128, 0.3));
+}

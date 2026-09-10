@@ -1313,10 +1313,26 @@ source while the caret is elsewhere, the source back when it enters.
 `Paragraph > Timeline` inserts a small template. A Preferences switch turns
 the drawing off; it is on by default.
 
+## 68. A source file could not be opened at all. Closed.
+
+The author's `code-viewer` brief is the typora-plugin-lite plugin's: open a
+non-Markdown text or code file read-only, with line numbers and syntax colour,
+and never write it. Typora would otherwise parse `# comment` as a heading;
+Noto used to refuse the open outright.
+
+The tree now lists those files when Preferences **Code viewer** is on (the
+default). Opening one paints a read-only pane over the editor — Prism tokens,
+a CSS gutter so a copy never carries line numbers — and leaves the bytes on
+disk untouched. Markdown notes still open as documents. Binary and oversized
+files show a notice instead of a pane.
+
+Not in this slice: rendering HTML/SVG as a framed page, language overrides
+remembered per extension, or indexing code files into quick open. The hard
+requirement that the original file is never rewritten is what this one does.
 
 # Where things stand
 
-## Plugins: twelve of sixteen, in some form
+## Plugins: thirteen of sixteen, in some form
 
 Real ports: Title Shift, Markdown Padding. Native equivalents: `wider` is the
 width modes, `tree-guides` is the connector lines and the sticky folders,
@@ -1325,11 +1341,11 @@ open's link mode with wiki-link rendering, `fence-enhance` is the fence gutter
 with its language, its copy button, its indent guides and its tab markers,
 `sidenote` is the numbered margin note for `<span class="sidenote">`,
 `todo-manager` is the check date and the sort, `file-tags` is the frontmatter
-chips and Browse Tags, `timeline` is the chronology fence, and `trail` is back
-and forward in the title bar and the Go menu, three notes each way. Not done:
-`code-viewer` and `drawio`; `recent-files` exists as a menu and a status strip
-rather than as the plugin's behaviour, and `remote-control` is infrastructure
-rather than a feature.
+chips and Browse Tags, `timeline` is the chronology fence, `code-viewer` is
+the read-only source pane, and `trail` is back and forward in the title bar
+and the Go menu, three notes each way. Not done: `drawio`; `recent-files`
+exists as a menu and a status strip rather than as the plugin's behaviour,
+and `remote-control` is infrastructure rather than a feature.
 
 ## Where Noto is ahead
 
@@ -1348,5 +1364,4 @@ and inline code together, since they are one stylesheet and one pass with the
 theme open beside it; done. Then line numbers and tree icons; both done. The
 remaining plugins after that, in the order the author names them;
 `fence-enhance` itself is now complete, and `sidenote`, `todo-manager`,
-`file-tags` and `timeline` are closed, with `code-viewer` and `drawio` still
-open.
+`file-tags`, `timeline` and `code-viewer` are closed, with `drawio` still open.

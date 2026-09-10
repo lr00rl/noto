@@ -257,6 +257,7 @@ async function run(): Promise<void> {
   session = new WorkspaceSession(
     createStore, recent, () => editorWindow, logger, recentFolders,
     () => settings.current().treeSort,
+    () => settings.current().codeViewer,
   );
   app.once('before-quit', () => session?.closeAll());
 
@@ -640,6 +641,7 @@ async function run(): Promise<void> {
       logger.log('settings_changed', { theme: reply.settings.theme });
       // The window has to be told, and the menu's tick has to follow, or the
       // preference and what the window is doing drift apart.
+      if (!reply.settings.codeViewer) session?.clearCodeView();
       if (reply.settings.alwaysOnTop !== menuState.alwaysOnTop) {
         menuState.alwaysOnTop = reply.settings.alwaysOnTop;
         windowAlwaysOnTop = reply.settings.alwaysOnTop;

@@ -21,6 +21,8 @@ export const WORKSPACE_CHANNELS = {
   saveAsDialog: 'noto:v1:workspace:save-as-dialog',
   recent: 'noto:v1:workspace:recent',
   documentOpened: 'noto:v1:workspace:document-opened',
+  /** A non-Markdown file opened in the read-only code viewer, or null to clear. */
+  codeViewChanged: 'noto:v1:workspace:code-view-changed',
   documentClosed: 'noto:v1:workspace:document-closed',
   tabsChanged: 'noto:v1:workspace:tabs-changed',
   activateTab: 'noto:v1:workspace:activate-tab',
@@ -156,9 +158,30 @@ export interface WorkspaceRecentReplyV1 {
 }
 
 /** `null` means the user dismissed the dialog, which is not a failure. */
+/** A non-Markdown file shown in the read-only code viewer. */
+export interface WorkspaceCodeViewV1 {
+  readonly path: string;
+  readonly name: string;
+  /** Prism / fence language id; empty string means plain text. */
+  readonly language: string;
+  /** File body, or empty when `notice` explains why it was not loaded. */
+  readonly content: string;
+  /** Binary, oversized, or read failure — shown instead of the body. */
+  readonly notice: string | null;
+  /** True when lines past the viewer cap were omitted. */
+  readonly truncated: boolean;
+}
+
+export interface WorkspaceCodeViewEventV1 {
+  readonly version: typeof NOTO_WORKSPACE_VERSION;
+  /** The view to show, or null when the viewer should close. */
+  readonly codeView: WorkspaceCodeViewV1 | null;
+}
+
 export type WorkspaceOpenReplyV1 =
   | { readonly version: typeof NOTO_WORKSPACE_VERSION; readonly opened: FileTruthOpenReplyV1 }
-  | { readonly version: typeof NOTO_WORKSPACE_VERSION; readonly opened: null };
+  | { readonly version: typeof NOTO_WORKSPACE_VERSION; readonly opened: null }
+  | { readonly version: typeof NOTO_WORKSPACE_VERSION; readonly codeView: WorkspaceCodeViewV1 };
 
 export interface WorkspaceSaveAsReplyV1 {
   readonly version: typeof NOTO_WORKSPACE_VERSION;
@@ -704,6 +727,7 @@ export interface NotoWorkspaceApiV1 {
   listFolder(request: WorkspaceFolderRequestV1): Promise<WorkspaceResultV1<WorkspaceFolderReplyV1>>;
   onFolderChanged(listener: (event: WorkspaceFolderEventV1) => void): () => void;
   onDocumentOpened(listener: (event: WorkspaceDocumentEventV1) => void): () => void;
+  onCodeViewChanged(listener: (event: WorkspaceCodeViewEventV1) => void): () => void;
   onDocumentClosed(listener: (event: WorkspaceClosedEventV1) => void): () => void;
   onTabsChanged(listener: (event: WorkspaceTabsEventV1) => void): () => void;
   onMenuCommand(listener: (event: WorkspaceMenuEventV1) => void): () => void;
