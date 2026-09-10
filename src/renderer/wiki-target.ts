@@ -94,3 +94,30 @@ function closeness(relativePath: string, fromDirectory: string): number {
   // A note in exactly this folder beats one that merely shares a prefix.
   return shared * 2 + (here.length === there.length && shared === here.length ? 1 : 0);
 }
+
+/**
+ * Path of `target` relative to `baseDir`, both vault-relative with forward
+ * slashes. Matches note-assistant `relPathFromDir` for the shapes this vault
+ * writes into related blocks and MOC indexes.
+ */
+export function relPathFromDir(targetRelativePath: string, baseDir: string): string {
+  const target = normalisePath(targetRelativePath.replace(/\\/g, '/')).split('/').filter((part) => part.length > 0);
+  const base = normalisePath(baseDir.replace(/\\/g, '/')).split('/').filter((part) => part.length > 0);
+  let shared = 0;
+  while (shared < target.length && shared < base.length && target[shared] === base[shared]) shared += 1;
+  const up = base.slice(shared).map(() => '..');
+  const down = target.slice(shared);
+  return [...up, ...down].join('/') || '.';
+}
+
+/**
+ * The wiki-link target for a note, as apply-graph and hand-written MOCs write
+ * it: relative to the folder of `fromRelativePath`, with no `.md` suffix.
+ *
+ * `fromRelativePath` is the note being edited (a file path); the folder it
+ * lives in is what the target is relative to.
+ */
+export function wikiTargetFor(targetRelativePath: string, fromRelativePath: string): string {
+  const fromDirectory = normalisePath(fromRelativePath.replace(/\\/g, '/')).split('/').slice(0, -1).join('/');
+  return withoutExtension(relPathFromDir(targetRelativePath.replace(/\\/g, '/'), fromDirectory));
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalisePath, wikiCandidates, type WikiCandidate } from '../../src/renderer/wiki-target';
+import { normalisePath, relPathFromDir, wikiCandidates, wikiTargetFor, type WikiCandidate } from '../../src/renderer/wiki-target';
 
 const entry = (relativePath: string): WikiCandidate => ({
   path: `/vault/${relativePath}`,
@@ -66,5 +66,32 @@ describe('the path arithmetic', () => {
     expect(normalisePath('a/./b/../c')).toBe('a/c');
     expect(normalisePath('/a//b/')).toBe('a/b');
     expect(normalisePath('../../x')).toBe('x');
+  });
+});
+
+describe('wikiTargetFor', () => {
+  it('writes a note-relative target the way apply-graph and MOCs do', () => {
+    expect(wikiTargetFor(
+      'A000_Theoretical_Knowledge/A404_Linux/00_Linux总览.md',
+      'Z900_MOCs/代理与隧道.md',
+    )).toBe('../A000_Theoretical_Knowledge/A404_Linux/00_Linux总览');
+
+    expect(wikiTargetFor(
+      'Z900_MOCs/LLM推理部署.md',
+      'Z900_MOCs/代理与隧道.md',
+    )).toBe('LLM推理部署');
+
+    expect(wikiTargetFor(
+      'P000_Public/首页.md',
+      'P000_Public/P001_DailyNews/00_索引.md',
+    )).toBe('../首页');
+  });
+
+  it('matches relPathFromDir then strips the extension', () => {
+    expect(relPathFromDir(
+      'A000_Theoretical_Knowledge/foo.md',
+      'Z900_MOCs',
+    )).toBe('../A000_Theoretical_Knowledge/foo.md');
+    expect(wikiTargetFor('V000_Vault/note.md', 'V000_Vault/note.md')).toBe('note');
   });
 });
