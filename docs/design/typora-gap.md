@@ -1402,7 +1402,7 @@ and the Go menu, three notes each way. `recent-files` is folded into Quick
 Open's empty-query frecency list and the File menu / empty-state recent list,
 with confirmed-open recording (success only, once per transition) matching the
 plugin's `ConfirmedOpenRecorder` spirit rather than a separate fuzzy-recent
-palette. Not done: `drawio`; and `remote-control` is infrastructure rather
+palette. `drawio` is partially closed: `.drawio` opens read-only as XML in the code viewer, and `.drawio.svg` shows a rendered SVG preview with a source toggle (no in-app diagrams.net editor). `remote-control` is infrastructure rather
 than a feature.
 
 ## Where Noto is ahead
@@ -1422,4 +1422,4 @@ and inline code together, since they are one stylesheet and one pass with the
 theme open beside it; done. Then line numbers and tree icons; both done. The
 remaining plugins after that, in the order the author names them;
 `fence-enhance` itself is now complete, and `sidenote`, `todo-manager`,
-`file-tags`, `timeline` and `code-viewer` are closed, with `drawio` still open.
+`file-tags`, `timeline` and `code-viewer` are closed; `drawio` has the code-viewer open/preview slice above, not a live editor.

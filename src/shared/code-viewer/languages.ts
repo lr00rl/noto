@@ -4,6 +4,8 @@
  * Ported from the author's typora-plugin-lite `code-viewer`: a known text/code
  * extension opens read-only; markdown stays a real document; an unknown but
  * textual extension opens as plain text rather than being refused.
+ * `.drawio` opens as XML; `.drawio.svg` is still `markup` and the viewer
+ * can render a preview from the SVG body.
  */
 
 const MARKDOWN_EXTS = new Set(['md', 'markdown', 'mdown', 'mkd', 'mdx', 'txt']);
@@ -41,6 +43,7 @@ const EXT_LANG: Readonly<Record<string, string>> = {
   json: 'json', json5: 'json', jsonc: 'json',
   yaml: 'yaml', yml: 'yaml', toml: 'toml',
   xml: 'markup', svg: 'markup', plist: 'markup',
+  drawio: 'xml',
   ini: 'ini', cfg: 'ini', conf: 'ini', properties: 'ini',
   sql: 'sql', graphql: 'graphql', gql: 'graphql', proto: 'protobuf',
   tf: 'hcl', hcl: 'hcl', nix: 'nix', cmake: 'cmake',
@@ -66,6 +69,24 @@ function splitExt(fileName: string): { base: string; ext: string } {
   const dot = name.lastIndexOf('.');
   if (dot <= 0) return { base: name, ext: '' };
   return { base: name, ext: name.slice(dot + 1) };
+}
+
+
+/** True for diagrams.net / draw.io native XML (`.drawio`). */
+export function isDrawioFileName(fileName: string): boolean {
+  const name = fileName.replace(/\\/g, '/').split('/').pop() ?? '';
+  return /\.drawio$/i.test(name);
+}
+
+/**
+ * True for a draw.io SVG export (`.drawio.svg`).
+ *
+ * `splitExt` only sees the final `.svg`, so callers that need the compound
+ * name must use this rather than `languageFor`.
+ */
+export function isDrawioSvgFileName(fileName: string): boolean {
+  const name = fileName.replace(/\\/g, '/').split('/').pop() ?? '';
+  return /\.drawio\.svg$/i.test(name);
 }
 
 /** True for Noto's own document types, which must never be code-viewed. */

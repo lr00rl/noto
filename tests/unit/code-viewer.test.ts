@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { isProbablyBinary } from '../../src/shared/code-viewer/binary';
 import {
+  isDrawioFileName,
+  isDrawioSvgFileName,
   isMarkdownFileName,
   isViewableCodeFile,
   languageFor,
 } from '../../src/shared/code-viewer/languages';
 import { highlightCodeLines } from '../../src/renderer/code-viewer-highlight';
+import { looksLikeSvgContent } from '../../src/renderer/CodeViewer';
 import { CODE_VIEW_MAX_BYTES, CODE_VIEW_MAX_LINES } from '../../src/shared/code-viewer/limits';
 
 describe('recognising what to open', () => {
@@ -62,5 +65,30 @@ describe('limits', () => {
   it('keeps the author\'s preview caps', () => {
     expect(CODE_VIEW_MAX_BYTES).toBe(4_000_000);
     expect(CODE_VIEW_MAX_LINES).toBe(50_000);
+  });
+});
+
+describe('drawio recognition', () => {
+  it('opens .drawio as xml and .drawio.svg as markup', () => {
+    expect(languageFor('arch.drawio')).toBe('xml');
+    expect(isViewableCodeFile('arch.drawio')).toBe(true);
+    expect(languageFor('arch.DRAWIO')).toBe('xml');
+    expect(languageFor('flow.drawio.svg')).toBe('markup');
+    expect(isViewableCodeFile('flow.drawio.svg')).toBe(true);
+  });
+
+  it('detects compound drawio.svg names separately from plain .drawio', () => {
+    expect(isDrawioFileName('vault/a.drawio')).toBe(true);
+    expect(isDrawioFileName('vault/a.drawio.svg')).toBe(false);
+    expect(isDrawioSvgFileName('vault/a.drawio.svg')).toBe(true);
+    expect(isDrawioSvgFileName('vault/a.svg')).toBe(false);
+    expect(isDrawioSvgFileName('vault/a.drawio')).toBe(false);
+  });
+
+  it('accepts SVG heads for preview and rejects empty or non-svg', () => {
+    expect(looksLikeSvgContent('<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg"></svg>')).toBe(true);
+    expect(looksLikeSvgContent('<svg viewBox="0 0 1 1"/>')).toBe(true);
+    expect(looksLikeSvgContent('')).toBe(false);
+    expect(looksLikeSvgContent('<mxfile host="app.diagrams.net"></mxfile>')).toBe(false);
   });
 });

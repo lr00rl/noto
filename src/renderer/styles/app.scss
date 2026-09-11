@@ -2653,3 +2653,44 @@ button:disabled { color: var(--muted); opacity: 0.7; }
   opacity: 0.7;
   border-top: 1px dashed var(--rule, rgba(128, 128, 128, 0.3));
 }
+
+.code-viewer-toggle {
+  margin-left: 4px;
+  padding: 1px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--rule, rgba(128, 128, 128, 0.3));
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0.8;
+}
+.code-viewer-toggle:hover { opacity: 1; background: rgba(128, 128, 128, 0.08); }
+.code-viewer-toggle[aria-pressed="true"] {
+  border-color: var(--accent, #4c8bf5);
+  opacity: 1;
+}
+
+.code-viewer-preview {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 24px 16px;
+  overflow: auto;
+  background:
+    linear-gradient(45deg, rgba(128, 128, 128, 0.08) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(128, 128, 128, 0.08) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(128, 128, 128, 0.08) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(128, 128, 128, 0.08) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+  border-bottom: 1px solid var(--rule, rgba(128, 128, 128, 0.25));
+}
+
+.code-viewer-preview-img {
+  max-width: min(100%, 960px);
+  height: auto;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
