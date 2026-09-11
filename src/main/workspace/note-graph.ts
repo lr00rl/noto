@@ -12,8 +12,8 @@
  * and kept until its modification time changes. Only the note asked about
  * is sent to the renderer.
  *
- * Hub MOCs (`moc: true`) are dropped from `graph.notes` by note-assistant
- * before rows are written. When a note has no row, neighbours are still
+ * Newer note-assistant builds emit lightweight hub rows for `moc: true`
+ * notes. When a hub still has no row (older graph.json), neighbours are
  * recovered read-only by scanning other notes' outbound `explicitLinks` and
  * related/candidate edges that point at this path (or a path/title alias) —
  * without rebuilding the vault graph in-app.
@@ -103,7 +103,7 @@ export interface HubEdgeAliases {
 
 /**
  * Path and title forms that may appear on the other end of a graph edge when
- * the hub itself was never issued a row (`moc: true` filter).
+ * the hub itself has no graph row (older builds omitted `moc: true` hubs).
  */
 export function hubEdgeAliases(relPath: string, title?: string | null): HubEdgeAliases {
   const paths = new Set<string>();
