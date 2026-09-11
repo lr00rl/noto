@@ -18,6 +18,7 @@ mdast dump.
 See the engine’s own docs:
 
 - Vision: https://github.com/roobli/md/blob/main/docs/design/vision.md
+- Roadmap: https://github.com/roobli/md/blob/main/docs/design/roadmap.md
 - Noto bridge: https://github.com/roobli/md/blob/main/docs/design/noto-bridge.md
 - Contract v0: https://github.com/roobli/md/blob/main/docs/design/contract-v0.md
 - Typora study notes: https://github.com/roobli/md/blob/main/docs/design/typora-notes.md
@@ -28,5 +29,10 @@ Integration shape: swap `splitBlocks` / dialect parse for `parseBlocks` from
 
 ## Status
 
-Phase 0 scaffold only (micromark behind an explicit replace boundary). Do not
-depend on it in product code until parity and bench gates land.
+**Phase 1 in progress** on `@roobli/md` main: native block scanner for
+heading / paragraph / list / fenced code (exact offsets; beats blank-line-naive
+fence splits), with micromark fallback for GFM tables, tasks, math,
+frontmatter, etc. Phase 0 API scaffold is done.
+
+Do **not** depend on it in Noto product code until parity and bench gates land
+(Phase 2+ tables/tasks natively, then bridge adapter).
