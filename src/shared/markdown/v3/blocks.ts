@@ -9,9 +9,15 @@
  *
  * No Node builtins here. The renderer imports this module to build its
  * ProseMirror document.
+ *
+ * Optional backend: when `NOTO_MARKDOWN_ENGINE=roobli-md` (or the test
+ * override) is set, splitting routes through `@roobli/md` via
+ * `roobli-md-adapter.ts`. Default remains micromark.
  */
 
 import type { List, RootContent } from 'mdast';
+import { isRoobliMdEngine } from './engine-flag';
+import { parseSingleBlockViaRoobli, splitBlocksViaRoobli } from './roobli-md-adapter';
 import { parseMarkdown, topLevelNodes } from './syntax';
 import type { NotoBlockKind, NotoDocumentWire } from './contracts';
 
@@ -118,13 +124,10 @@ function trimTrailingNewlines(text: string, end: number): number {
 }
 
 /**
- * Split `text` into blocks and the literal whitespace between them.
- *
- * Every character of `text` appears in exactly one of `leading`, a span's
- * `markdown`, a gap, or `trailing`. That total coverage is what lets the
- * serializer rebuild an untouched document byte for byte.
+ * Micromark-backed split (historical default). Exported for parity tests that
+ * must pin the baseline even when the process env selects `@roobli/md`.
  */
-export function splitBlocks(text: string): SplitDocument {
+export function splitBlocksMicromark(text: string): SplitDocument {
   const root = parseMarkdown(text);
   const spans: BlockSpan[] = [];
 
@@ -145,15 +148,29 @@ export function splitBlocks(text: string): SplitDocument {
 
   const gaps: string[] = [];
   for (let index = 0; index + 1 < spans.length; index += 1) {
-    gaps.push(text.slice(spans[index].end, spans[index + 1].start));
+    gaps.push(text.slice(spans[index]!.end, spans[index + 1]!.start));
   }
 
   return {
     spans,
-    leading: text.slice(0, spans[0].start),
+    leading: text.slice(0, spans[0]!.start),
     gaps,
-    trailing: text.slice(spans[spans.length - 1].end),
+    trailing: text.slice(spans[spans.length - 1]!.end),
   };
+}
+
+/**
+ * Split `text` into blocks and the literal whitespace between them.
+ *
+ * Every character of `text` appears in exactly one of `leading`, a span's
+ * `markdown`, a gap, or `trailing`. That total coverage is what lets the
+ * serializer rebuild an untouched document byte for byte.
+ */
+export function splitBlocks(text: string): SplitDocument {
+  if (isRoobliMdEngine()) {
+    return splitBlocksViaRoobli(text);
+  }
+  return splitBlocksMicromark(text);
 }
 
 /**
@@ -164,10 +181,13 @@ export function splitBlocks(text: string): SplitDocument {
  * quietly change the document structure.
  */
 export function parseSingleBlock(markdown: string): BlockSpan | null {
-  const split = splitBlocks(markdown);
+  if (isRoobliMdEngine()) {
+    return parseSingleBlockViaRoobli(markdown);
+  }
+  const split = splitBlocksMicromark(markdown);
   if (split.spans.length !== 1) return null;
   if (split.leading.trim().length > 0 || split.trailing.trim().length > 0) return null;
-  return split.spans[0];
+  return split.spans[0]!;
 }
 
 /**
@@ -194,4 +214,3 @@ export function blockSpansFromWire(document: NotoDocumentWire): readonly BlockSp
     };
   });
 }
-

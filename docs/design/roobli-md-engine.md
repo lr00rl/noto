@@ -1,8 +1,8 @@
-# `@roobli/md` — future parse backend
+# `@roobli/md` — parse backend adapter
 
-Noto’s markdown v3 stack (`src/shared/markdown/v3/`) still parses with micromark
-today. The long-term engine that should own that hot path is the public MIT
-package **[@roobli/md](https://github.com/roobli/md)** (“WYSIWYG-first markdown
+Noto’s markdown v3 stack (`src/shared/markdown/v3/`) still defaults to micromark.
+The long-term engine that should own that hot path is the public MIT package
+**[@roobli/md](https://github.com/roobli/md)** v0.1.0 (“WYSIWYG-first markdown
 engine for Noto”).
 
 ## Why
@@ -13,26 +13,81 @@ duplicate renderer pass). The editor already wants block spans, gaps, and
 byte-exact untouched regions — a WYSIWYG-oriented engine, not only a correct
 mdast dump.
 
-## Bridge
+## Dependency
 
-See the engine’s own docs:
+```
+"@roobli/md": "github:roobli/md#v0.1.0"
+```
+
+pnpm must allow its `prepare` (tsc) build — see `allowBuilds` in
+`pnpm-workspace.yaml`.
+
+## Feature flag (default off)
+
+| Switch | Effect |
+| ------ | ------ |
+| unset / anything else | micromark path (product default) |
+| `NOTO_MARKDOWN_ENGINE=roobli-md` | route `splitBlocks` / `parseSingleBlock` through the adapter |
+| `setMarkdownEngineForTests('roobli-md' \| 'micromark' \| null)` | unit-test override |
+
+Implementation:
+
+- `src/shared/markdown/v3/engine-flag.ts` — env + test override
+- `src/shared/markdown/v3/roobli-md-adapter.ts` — thin mapping
+- `src/shared/markdown/v3/blocks.ts` — `splitBlocksMicromark` baseline; `splitBlocks` respects the flag
+
+### How to enable locally
+
+```bash
+NOTO_MARKDOWN_ENGINE=roobli-md pnpm start
+# or for unit tests that should exercise the adapter path:
+NOTO_MARKDOWN_ENGINE=roobli-md pnpm test
+```
+
+Product / CI stay on micromark until remaining fixture divergences (tight
+adjacent quotes / callouts, etc.) are closed or explicitly accepted.
+
+## Adapter mapping
+
+| Noto | `@roobli/md` |
+| ---- | ------------ |
+| `splitBlocks` / `parseBlocks` | `parseBlocks` (+ dialect enrichment for `node` / `semanticKey`) |
+| windowed verify / middle replace | `reparseBlocks` |
+| identity / single-block save checks | `serializeDocument` / `joinSplit` / `identityUnits` |
+
+**Kept in the Noto layer:** branded IDs, `sha256`, envelope endings / BOM,
+`semanticKey` computation, wire `nodes` (mdast). Native engine spans ship
+`node: null`; the adapter attaches mdast via Noto’s `syntax.ts` dialect when a
+ProseMirror-ready node is required.
+
+## Parity tests
+
+`tests/unit/roobli-md-adapter.test.ts` plus synthetic fixtures under
+`tests/fixtures/roobli-md-parity/` (no RooB private content):
+
+1. **Structural parity** — `start` / `end` / `markdown` / gaps vs micromark on
+   synthetic samples and the g002 subset that already matches.
+2. **Flag routing** — `splitBlocks` / `parseSingleBlock` honour the override.
+3. **`reparseBlocks`** — middle window rewrite keeps untouched prefix object
+   identity on the structural split.
+4. **Serialize identity** — engine `serializeDocument(identityUnits)` bytes
+   equal Noto `identityTransaction` output on the same sources.
+
+Known divergence today: consecutive tight blockquotes (e.g. Typora callouts in
+`quote-callout.md` / `g004-daily-editing.md`) — native may merge where micromark
+emits two `blockquote` nodes. Coverage (`joinSplit`) still holds.
+
+## Bridge docs (engine repo)
 
 - Vision: https://github.com/roobli/md/blob/main/docs/design/vision.md
 - Roadmap: https://github.com/roobli/md/blob/main/docs/design/roadmap.md
 - Noto bridge: https://github.com/roobli/md/blob/main/docs/design/noto-bridge.md
 - Contract v0: https://github.com/roobli/md/blob/main/docs/design/contract-v0.md
-- Typora study notes: https://github.com/roobli/md/blob/main/docs/design/typora-notes.md
-
-Integration shape: swap `splitBlocks` / dialect parse for `parseBlocks` from
-`@roobli/md` while keeping branded IDs, hashing, serialize, and
-`NotoDocumentWire` in Noto.
 
 ## Status
 
-**Phase 1 in progress** on `@roobli/md` main: native block scanner for
-heading / paragraph / list / fenced code (exact offsets; beats blank-line-naive
-fence splits), with micromark fallback for GFM tables, tasks, math,
-frontmatter, etc. Phase 0 API scaffold is done.
-
-Do **not** depend on it in Noto product code until parity and bench gates land
-(Phase 2+ tables/tasks natively, then bridge adapter).
+**Adapter spike landed (default-off).** `@roobli/md` Phase 6 native scanner is
+the flagged backend; micromark remains the product default. Next: close
+callout/quote split parity, optionally cache prior splits so
+`NotoEditor.replaceMarkdown` can call `reparseBlocks` instead of a full native
+split, then consider default-on behind broader golden gates.
