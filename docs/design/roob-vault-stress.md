@@ -23,23 +23,19 @@ node .tools/note-assistant/build-graph.mjs --root /workspace/RooB
 | Wall time | ≈33 s on this box (Node 22.13 after nvm; first run also paid shell/nvm setup) |
 | Scanned | 7183 notes |
 | Target notes | 4898 |
-| Graph notes | 4664 (tech-eligible only) |
+| Graph notes | allow-dir rebuild 2026-09-11: 3536 (3385 content + 151 MOC hubs); earlier full-target run was 4664 content-only |
 | Sparse related blocks | 0 (`heuristicBlocksEnabled: false`, no AI cache) |
 | Schema | `schemaVersion: 2` |
 
-`Z900_MOCs` is in `vault.yaml` targets with `graph: true`, but notes with
-`moc: true` frontmatter are dropped from `graph.notes` by
-`isTechEligiblePath(...) && !moc:true` in note-assistant `lib.mjs`. Hub MOCs
-therefore never appear as graph rows even when the directory is targeted.
-
-`enrichNotes` also runs only on tech-eligible notes, so MOC paths are absent
-from the resolver maps used while recording `explicitLinks`. Content notes that
-wiki-link to a MOC (e.g. `[[../../../../Z900_MOCs/代理与隧道]]`) therefore do
-**not** retain that target on their graph row today — a 2026-09-10 recount found
-**0** `explicitLinks` / related / candidate edges pointing at `Z900_MOCs/*` or
-`00_Linux总览.md` in the rebuilt `graph.json`. Keys that *would* carry hub
-neighbours if resolution included MOCs: per-note `explicitLinks`, `backlinks`,
-`related`, `candidates` (score + `relPath` + `title`).
+`Z900_MOCs` is in `vault.yaml` targets with `graph: true`. As of the
+2026-09-11 note-assistant fix, `moc: true` hubs stay in the enrich resolve map
+and emit **lightweight hub rows** (`moc: true`, `shouldGenerateBlock: false`,
+no AI pending). Index-block wiki links are kept for edge extraction (related
+blocks still stripped). An allow-dir rebuild
+(`A000`/`B000`/`Z000`/`Z900_MOCs`/`V000`/`P000`) produced **151** hub rows;
+`Z900_MOCs/代理与隧道.md` had **3** inbound `explicitLinks` (including
+`mihomo/README.md`) and **118** outbound; overall **58** notes carried an
+`explicitLinks` edge to some MOC path (was **0** on 2026-09-10).
 
 ## 2. Wiki-link density and resolve rate
 
@@ -73,7 +69,7 @@ Surfaces checked on current `main` (post MOC graph-rail):
 |---|---|---|
 | Follow `[[target]]` / `[[target\|label]]` without rewriting bytes | Decorations in `wiki-link-plugin.ts`; Cmd/Ctrl-click | **OK** — right risk model |
 | Resolve note-relative then root then name | `wikiCandidates` in `wiki-target.ts` | **OK** for MOC `../A000/...` links |
-| Related panel from `.note-assistant/graph.json` | `note-graph.ts` + `RailLinks`; **#14** seeds **Links to** from in-note wiki when `graph.notes` misses a MOC; **MOC graph-rail** additionally derives **Linked from** / **Related** by scanning other rows’ `explicitLinks` and related/candidate edges that point at the hub path (or bare title alias) | **Closed in Noto** for the rail contract; **partial in RooB data** — current `graph.json` has zero MOC-pointing edges, so inferred Linked from / Related stay empty until note-assistant keeps MOCs in the resolve map (or emits lightweight hub rows) |
+| Related panel from `.note-assistant/graph.json` | `note-graph.ts` + `RailLinks`; **#14** seeds **Links to** from in-note wiki when `graph.notes` misses a MOC; **MOC graph-rail** additionally derives **Linked from** / **Related** by scanning other rows’ `explicitLinks` and related/candidate edges that point at the hub path (or bare title alias); when note-assistant emits lightweight hub rows, `linksFor` / `known: true` also works | **Closed** — Noto rail + RooB data (hub rows + MOC-pointing `explicitLinks` after 2026-09-11 note-assistant fix). Rebuild local `graph.json` to pick up; file stays gitignored |
 | Issued in-note `<!-- note-assistant:start -->` Related Notes blocks | **#14** `index-block.ts` keeps `index:*` vs bare `note-assistant:start/end` as distinct families; related draws `.noto-related` chrome | **Closed** (chrome distinct); vault still has **0** issued related blocks, so unexercised in RooB |
 | Directory / MOC indexes as compact read-only UI | `index-block` widget + click `onFollow`; caret restores source | **Mostly OK** — 100+ link MOCs are the intended shape. #17 stub scroller helps **large documents** when far-off blocks leave the viewport; it does **not** virtualize *inside* one index widget |
 | Quiet HTML comment markers | `isHtmlComment` in `html-view.ts` | **OK** |
@@ -84,10 +80,9 @@ Surfaces checked on current `main` (post MOC graph-rail):
 #14 closed MOC Links seed, distinct related chrome, and Alt+Enter note-relative
 insert. MOC graph-rail closes the remaining rail gap on the Noto side (derive
 backlinks / inverse-related from existing edges; honest empty Related; no
-regression for notes that already have graph rows). Remaining honesty: RooB’s
-pipeline still omits MOC rows **and** drops MOC targets from other notes’
-`explicitLinks`, so Dylan’s hubs often still show Links-to (seed) only until
-note-assistant changes.
+regression for notes that already have graph rows). RooB note-assistant
+(2026-09-11) now keeps hubs in the resolve map and emits lightweight MOC rows,
+so rebuilt `graph.json` carries hub edges for the rail.
 
 ## 4. Three scenarios — pass / fail / risk
 
@@ -102,13 +97,13 @@ note-assistant changes.
   edges aimed at the hub path, `deriveLinksFor` fills Linked from and/or
   Related while `known` stays false; Related is omitted when empty; non-MOC
   notes still use `linksFor` unchanged.
-- **Partial (RooB vault data):** Rebuilt RooB `graph.json` currently has
-  **zero** such edges, so inferred hub Linked from / Related remain empty in
-  practice. Not a Noto invent-from-index gap — the file simply has nothing to
-  scan.
-- **Risk:** Product ambiguity remains if Dylan expects full Related parity on
-  hubs without teaching note-assistant to resolve/link MOC paths (or emit
-  lightweight MOC graph rows). Noto will not rebuild the vault graph in-app.
+- **Pass (RooB vault data, 2026-09-11):** Allow-dir rebuild yields lightweight
+  hub rows + MOC-pointing `explicitLinks` (e.g. `代理与隧道` inbound from
+  mihomo README). Hub `linksFor` / derive fallback both have edges to read.
+  Related on hubs stays sparse unless candidate/related scores point at the
+  hub — Linked from is the main win.
+- **Risk:** Stale local `graph.json` still shows empty hub Linked from until
+  rebuild. Noto will not rebuild the vault graph in-app.
 
 ### B. Read-only index
 
@@ -135,10 +130,9 @@ note-assistant changes.
 ## 5. Recommendations
 
 1. **MOC / Links UX:** **Done in #14** for outbound seed (`seed-links`);
-   **done in Noto** for derived Linked from / Related when edges exist.
-   Optional follow-up **in note-assistant**: keep MOC paths in the enrich
-   resolve map (or emit lightweight MOC rows without `shouldGenerateBlock`)
-   so RooB `graph.json` actually carries hub edges for the rail to show.
+   **done in Noto** for derived Linked from / Related when edges exist;
+   **done in RooB note-assistant (2026-09-11)** for resolve-map hubs +
+   lightweight MOC rows (no related-block issuance into hub files).
 2. **Keep marker families distinct:** **Done in #14** (`index` vs `related`
    chrome in `index-block.ts`).
 3. **QuickOpen Alt+Enter parity:** **Done in #14** (`wikiTargetFor` + `\|title`).
