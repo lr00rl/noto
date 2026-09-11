@@ -85,11 +85,20 @@ const SKIPPED_DIRECTORIES = new Set([
 
 const MAX_ENTRIES = 2_000;
 
-/** True when `target` is the root or sits inside it. */
-export function isInside(root: string, target: string): boolean {
+/**
+ * True when `target` is the root or sits inside it.
+ *
+ * `pathApi` lets callers (and tests) judge Windows-style or POSIX-style paths
+ * without depending on the host OS. Defaults to this process's `path`.
+ */
+export function isInside(
+  root: string,
+  target: string,
+  pathApi: Pick<path.PlatformPath, 'relative' | 'isAbsolute'> = path,
+): boolean {
   if (target === root) return true;
-  const relative = path.relative(root, target);
-  return relative.length > 0 && !relative.startsWith('..') && !path.isAbsolute(relative);
+  const relative = pathApi.relative(root, target);
+  return relative.length > 0 && !relative.startsWith('..') && !pathApi.isAbsolute(relative);
 }
 
 /**

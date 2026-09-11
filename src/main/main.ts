@@ -7,13 +7,14 @@ import {
 } from '../shared/workspace/v1/contracts';
 import { startRemoteServer, type RunningRemote } from './remote/server';
 import { TokenStore } from './remote/token-store';
+import { confineRemoteOpenPath } from './remote/resolve-open-path';
 import {
   NOTO_SETTINGS_VERSION, SETTINGS_CHANNELS, type NotoSettingsV1, type RemoteStatusReplyV1,
 } from '../shared/settings/v1/contracts';
 import { ensureThemeFolder, listThemes } from './workspace/themes';
 import path from 'node:path';
 import { statSync } from 'node:fs';
-import { readFile, rm, writeFile } from 'node:fs/promises';
+import { readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import { app, BrowserWindow, dialog, shell } from 'electron';
 import { FileTruthStoreV1 } from './file-truth/v1/file-truth-store';
 import { registerFileTruthHandlers } from './file-truth/v1/register-file-truth-handlers';
@@ -558,12 +559,18 @@ async function run(): Promise<void> {
             };
           },
           open: async (target) => {
-            // A path relative to the folder that is open, which is what a
-            // caller writes, as well as an absolute one.
+            // Relative to the open folder, or absolute — but only inside it.
+            // openPath itself does not confine (File > Open may leave the
+            // folder); the remote path is the one that must not.
             const root = session?.folder ?? null;
-            const resolved = path.isAbsolute(target) || root === null
-              ? target
-              : path.resolve(root, target);
+            const resolved = await confineRemoteOpenPath(root, target, { realpath });
+            if (resolved === null) {
+              return {
+                opened: false,
+                code: 'outside-folder',
+                reason: 'That is not in this folder.',
+              };
+            }
             try {
               await session?.openPath(resolved);
               refreshMenu();
