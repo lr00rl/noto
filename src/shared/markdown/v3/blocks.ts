@@ -13,7 +13,7 @@
 
 import type { List, RootContent } from 'mdast';
 import { parseMarkdown, topLevelNodes } from './syntax';
-import type { NotoBlockKind } from './contracts';
+import type { NotoBlockKind, NotoDocumentWire } from './contracts';
 
 export interface BlockSpan {
   readonly kind: NotoBlockKind;
@@ -169,3 +169,29 @@ export function parseSingleBlock(markdown: string): BlockSpan | null {
   if (split.leading.trim().length > 0 || split.trailing.trim().length > 0) return null;
   return split.spans[0];
 }
+
+/**
+ * Rebuild `BlockSpan`s from a wire document that still carries mdast nodes.
+ *
+ * Returns null when `nodes` is absent (incremental save replies), so callers
+ * can fall back to `parseDocumentSpans` / the Worker. Kept here rather than in
+ * `document.ts` so the renderer can use it without pulling in `node:crypto`.
+ */
+export function blockSpansFromWire(document: NotoDocumentWire): readonly BlockSpan[] | null {
+  const { nodes } = document;
+  if (!nodes || nodes.length !== document.spans.length || nodes.length !== document.origins.length) {
+    return null;
+  }
+  return document.spans.map((span, index) => {
+    const origin = document.origins[index]!;
+    return {
+      kind: origin.kind,
+      start: span.start,
+      end: span.end,
+      markdown: document.text.slice(span.start, span.end),
+      semanticKey: origin.semanticKey,
+      node: nodes[index]!,
+    };
+  });
+}
+

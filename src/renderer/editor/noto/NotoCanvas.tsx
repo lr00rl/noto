@@ -11,6 +11,7 @@ import { documentDirOf } from './image-source';
 import type { NotoDocumentWire, NotoTransaction } from '../../../shared/markdown/v3/contracts';
 import { NotoEditor, type InsertedImage } from './NotoEditor';
 import { parseDocumentSpans } from './parse-document';
+import { blockSpansFromWire } from '../../../shared/markdown/v3/blocks';
 import type { DocumentCount } from './word-count';
 
 export interface NotoCanvasProps {
@@ -93,11 +94,12 @@ export function NotoCanvas({
     let editor: NotoEditor | null = null;
 
     void (async () => {
-      // Full-document micromark runs in a worker so opening a large note does
-      // not freeze the window. docFromSpans stays on this thread and is cheap.
+      // Prefer mdast nodes main already sent on the wire (skips the second
+      // micromark pass). Fall back to the Worker when nodes are null, which is
+      // the incremental-save reply shape; open and reload carry nodes.
       let spans;
       try {
-        spans = await parseDocumentSpans(document.text);
+        spans = blockSpansFromWire(document) ?? await parseDocumentSpans(document.text);
       } catch (error) {
         if (!cancelled) {
           onError(error instanceof Error ? error.message : 'The editor failed to start.');

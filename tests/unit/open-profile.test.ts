@@ -1,7 +1,7 @@
 import { it } from 'vitest';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import { splitBlocks } from '../../src/shared/markdown/v3/blocks';
+import { blockSpansFromWire, splitBlocks } from '../../src/shared/markdown/v3/blocks';
 import { docFromSpans } from '../../src/shared/markdown/v3/pm/from-mdast';
 import { parseDocument, toWire } from '../../src/shared/markdown/v3/document';
 import { outlineFromDocument, outlineOf } from '../../src/renderer/outline';
@@ -22,6 +22,10 @@ import { outlineFromDocument, outlineOf } from '../../src/renderer/outline';
  * The outline used to pay for another full `splitBlocks` on the UI thread at
  * open. `outlineFromDocument` reuses main's kinds and offsets instead; both
  * paths are timed here so the win stays visible.
+ *
+ * Open now also ships mdast `nodes` on the wire. `blockSpansFromWire` rebuilds
+ * spans without a second micromark pass; that path is timed against the old
+ * renderer `splitBlocks` so the dual-parse removal stays measurable on Linux.
  *
  * Skipped by default because it is a measurement, not an assertion, and it
  * needs the generated corpus. Run it with:
@@ -51,10 +55,16 @@ it.skipIf(!enabled)('profiles the phases of opening a document', { timeout: 300_
     if (parsed.status !== 'parsed') throw new Error(parsed.message);
     const wire = toWire(parsed.document);
 
-    // Same work the open-path Worker runs; timed here on this thread so the
-    // number stays comparable across machines without needing Electron.
-    const spans = time('renderer: splitBlocks', () => splitBlocks(bytes.toString('utf8')).spans);
+    // Same work the open-path Worker used to run on every open; still timed so
+    // the dual-parse cost stays visible next to the wire-nodes path.
+    const spans = time('renderer: splitBlocks (old)', () => splitBlocks(bytes.toString('utf8')).spans);
     time('renderer: docFromSpans', () => docFromSpans(spans));
+
+    // New path: rebuild spans from nodes main already shipped (plus IPC clone).
+    time('ipc: clone wire+nodes', () => { structuredClone(wire); });
+    const fromWire = time('renderer: fromWire nodes', () => blockSpansFromWire(wire));
+    if (!fromWire) throw new Error('expected nodes on open wire');
+    time('renderer: docFromWire', () => docFromSpans(fromWire));
 
     // Outline on open: the old path reparsed; the new path reuses the wire.
     time('outline: outlineOf (old)', () => outlineOf(wire.text));

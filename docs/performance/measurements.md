@@ -170,11 +170,29 @@ tests/unit/open-profile.test.ts` (2026-09-11):
 | medium   | 547 ms          | 0 ms                |
 | large    | 2292 ms         | 1 ms                |
 
-This does not remove the remaining renderer Worker parse or main's file-truth
-parse. It removes a duplicate that had no reason to exist once kinds and
-offsets already crossed the wire. Packaged wall-clock open still needs a macOS
-`out/e2e` run to quote end-to-end; the UI-thread outline cost above is gone on
-every platform that builds the outline from the accepted document.
+**Open ships mdast nodes on the wire, so the renderer skips its second parse.**
+Main's `parseDocument` already built top-level mdast nodes and then threw them
+away; the renderer Worker ran the same `splitBlocks` again. The wire now
+carries `nodes` aligned with `spans` / `origins` after a full parse (open and
+reload). `blockSpansFromWire` rebuilds `BlockSpan`s by slicing `text` and the
+renderer mounts with `docFromSpans` only. Incremental save replies still send
+`nodes: null` — the editor is already mounted, and a later reload reparses in
+main and ships nodes again. The Worker remains as a fallback.
+
+Measured on this Linux box with the same `PROFILE_OPEN` harness (2026-09-11),
+median-style single-run timings after warm corpus reads:
+
+| document | splitBlocks (old) | clone wire+nodes | fromWire + docFromSpans |
+| -------- | ----------------- | ---------------- | ----------------------- |
+| small    | 74 ms             | 5 ms             | 1 ms                    |
+| medium   | 554 ms            | 36 ms            | 4 ms                    |
+| large    | 2269 ms           | 159 ms           | 28 ms                   |
+
+On medium that removes about half a second of duplicate micromark after main
+has finished, at the cost of a larger structured clone (~3 MiB JSON-shaped
+payload versus ~0.9 MiB without nodes). Packaged wall-clock open still needs a
+macOS `out/e2e` run to quote end-to-end; the dual-parse CPU on open is gone on
+every platform that accepts a wire document with `nodes`.
 
 ## What a keystroke actually costs
 
@@ -289,10 +307,11 @@ Profiling the save path in isolation, on the main process side:
 | large    | 1597 ms  | 1700 ms            |
 | huge     | 9249 ms  | 10015 ms           |
 
-Parsing eight megabytes costs about eight seconds, and opening pays it twice as
-described above. The next change worth making is moving the renderer's parse off
-its main thread, which is what would let the two overlap and would also stop a
-large open freezing the interface while it runs.
+Parsing eight megabytes still costs about eight seconds on main. The renderer's
+duplicate open parse is gone when `nodes` ship on the wire (see above); the
+Worker remains only as a fallback for `nodes: null`. Overlapping main's parse
+with early text is still unused: with the second parse removed, the remaining
+critical path is one micromark pass plus IPC and first paint.
 
 Save on the largest document is 7.4 seconds rather than flat, so something in
 that path is still proportional to the document. The remaining candidates were
@@ -471,16 +490,16 @@ construction would be aimed at nothing. The entire cost is one full mdast parse,
 which `splitBlocks` performs and `docFromSpans` then consumes; there is no
 redundant work inside either.
 
-But removing the duplicate parse does not win the comparison. It would take
-roughly 330 ms off the 903 ms, landing near 570 ms against Typora's 343 ms.
-Still behind. The remaining distance is the single remaining parse plus IPC and
-first paint, so matching Typora at this size needs the parse itself to get
-faster or to stop being on the critical path, not merely to happen once.
+Removing the duplicate parse (now landed: wire `nodes` + `blockSpansFromWire`)
+takes the renderer micromark pass off the open path. On the macOS packaged
+baseline that would be roughly 330 ms off the 903 ms, landing near 570 ms
+against Typora's 343 ms — still behind. The remaining distance is the single
+remaining main parse plus IPC and first paint, so matching Typora at this size
+needs the parse itself to get faster or to stop being on the critical path.
 
-That points at three candidates, none of them attempted here: parse
-incrementally and show the document before it is finished, move the parse off
-the thread that paints so the window is live while it works, or reduce what the
-micromark extension set costs per byte. Deferring the main process parse until
-the first save is the cheapest of the four ideas and the most dangerous, because
-the file truth store's guarantees are built on having parsed the file it is
-holding, so it is not something to change casually for 330 ms.
+That points at candidates still open: parse incrementally and show the document
+before it is finished, overlap main's parse with early text now that the
+renderer no longer blocks on a second pass, or reduce what the micromark
+extension set costs per byte. Deferring the main process parse until the first
+save remains the most dangerous idea, because the file truth store's guarantees
+are built on having parsed the file it is holding.
