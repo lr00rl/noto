@@ -272,11 +272,48 @@ its main thread, which is what would let the two overlap and would also stop a
 large open freezing the interface while it runs.
 
 Save on the largest document is 7.4 seconds rather than flat, so something in
-that path is still proportional to the document. The remaining candidates are
+that path is still proportional to the document. The remaining candidates were
 the capture walk over every block in the renderer, the structured clone of one
 unit object per block across the process boundary, and building the eight
-megabyte output string. Each needs measuring before it is worth changing; the
+megabyte output string. Each needed measuring before it was worth changing; the
 mistake to avoid is optimising the cheap one twice.
+
+## Save path phases, measured 2026-09-11
+
+`PROFILE_SAVE=1 pnpm vitest run tests/unit/save-profile.test.ts` times those
+three candidates on Linux (Node 22, no Electron). Median of three runs after a
+warm. One-character edit in the middle; identity save is every unit pristine.
+
+Before the gap-index fix below:
+
+| document | capture (0/1 edit) | structuredClone | serialize identity | serialize 1-edit | string build+compare |
+| -------- | ------------------ | --------------- | ------------------ | ---------------- | -------------------- |
+| large    | 1 / 1 ms           | 11 ms           | 68 ms              | 81 ms            | 2 ms                 |
+| huge     | 8 / 8 ms           | 62 ms           | 1204 ms            | 1198 ms          | 20 ms                |
+
+Capture and structured clone were never the problem. The eight megabyte string
+build is twenty milliseconds. Almost the whole serialize cost was
+`document.gaps.find(...)` inside `gapBetween`, once per unit: gaps are stored
+densely with `beforeOrdinal === index`, so a linear search per unit is O(n²)
+in the block count (about 1.6 seconds alone on `huge` in a microbench).
+
+**Indexed gap lookup.** `gapBetween` now reads `document.gaps[ordinal]` and
+checks `beforeOrdinal`, which is the same answer as `.find` for every document
+`parseDocument` or `buildNextDocument` produces. After:
+
+| document | serialize identity | serialize 1-edit | change        |
+| -------- | ------------------ | ---------------- | ------------- |
+| large    | 30 ms              | 32 ms            | ~2.3x / 2.5x  |
+| huge     | 104 ms             | 136 ms           | ~11.5x / 8.8x |
+
+Packaged-app save on macOS still includes IPC, disk and journal work this
+profile does not; the serialize half of a huge identity save should drop by
+roughly a second on the same machine that recorded 7.4 seconds.
+
+What remains proportional after this fix is still real — roughly a hundred
+milliseconds of slice/join/hash/encode on `huge`, plus the structured clone of
+one unit object per block — but it is no longer the dominant story, and further
+save work should re-measure rather than assume.
 
 ## Three ways of measuring Typora that did not work
 
