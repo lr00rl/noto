@@ -28,7 +28,7 @@ import { QuickOpen, type QuickOpenMode } from './QuickOpen';
 import { searchBoost, type FrecencyStoreV1 } from '../shared/search/v1/frecency';
 import { ConfirmedOpenRecorder } from '../shared/search/v1/confirmed-open';
 import type { NotoDocumentWire } from '../shared/markdown/v3/contracts';
-import { outlineOf } from './outline';
+import { outlineFromDocument } from './outline';
 import { PLUGIN_LIFECYCLE_VERSION, type PluginLifecycleSnapshot } from '../shared/plugins/lifecycle';
 import { rendererProofManifest } from '../shared/plugins/proof-manifests';
 import {
@@ -1996,7 +1996,7 @@ function NotoWorkspace({ platform }: { platform: NotoPlatform }) {
     return [...builtin, ...plugins];
   }, [pluginSnapshots]);
 
-  const outline = useMemo(() => (document ? outlineOf(document.text) : []), [document]);
+  const outline = useMemo(() => (document ? outlineFromDocument(document) : []), [document]);
   /**
    * The heading the caret is under, which is the one question a list of
    * headings is asked while you are writing rather than navigating. The

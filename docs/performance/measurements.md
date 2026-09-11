@@ -153,6 +153,29 @@ path and no extra IPC from main. CSP allows `worker-src 'self'` for the main
 editor page only; diagram frames and the plugin sandbox keep `worker-src 'none'`.
 Paste and other small-fragment edits still call `splitBlocks` synchronously.
 
+**The outline no longer reparses on open.** The shell used to call
+`outlineOf(document.text)`, which ran a full micromark `splitBlocks` on the UI
+thread whenever an accepted wire document arrived. That was a third complete
+parse on the open path (main already parsed for file truth; the editor Worker
+parses again for mdast), and it blocked React while competing with the Worker
+for CPU. `outlineFromDocument` reuses the wire's `origins[].kind` and
+`spans[]` offsets and only slices heading markdown.
+
+Measured on this Linux box with `PROFILE_OPEN=1 pnpm vitest run
+tests/unit/open-profile.test.ts` (2026-09-11):
+
+| document | outlineOf (old) | outlineFromDocument |
+| -------- | --------------- | ------------------- |
+| small    | 70 ms           | 0 ms                |
+| medium   | 547 ms          | 0 ms                |
+| large    | 2292 ms         | 1 ms                |
+
+This does not remove the remaining renderer Worker parse or main's file-truth
+parse. It removes a duplicate that had no reason to exist once kinds and
+offsets already crossed the wire. Packaged wall-clock open still needs a macOS
+`out/e2e` run to quote end-to-end; the UI-thread outline cost above is gone on
+every platform that builds the outline from the accepted document.
+
 ## What a keystroke actually costs
 
 `scripts/bench/profile-typing.mjs` splits a keypress into the part we control,

@@ -3,7 +3,8 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { splitBlocks } from '../../src/shared/markdown/v3/blocks';
 import { docFromSpans } from '../../src/shared/markdown/v3/pm/from-mdast';
-import { parseDocument } from '../../src/shared/markdown/v3/document';
+import { parseDocument, toWire } from '../../src/shared/markdown/v3/document';
+import { outlineFromDocument, outlineOf } from '../../src/renderer/outline';
 
 /**
  * Splits the open path into its phases, on demand.
@@ -17,6 +18,10 @@ import { parseDocument } from '../../src/shared/markdown/v3/document';
  * so it no longer freezes the UI thread; this profile still times the same
  * work on the test thread, because the cost of the parse itself is what we
  * need when comparing sizes, not which thread paid it.
+ *
+ * The outline used to pay for another full `splitBlocks` on the UI thread at
+ * open. `outlineFromDocument` reuses main's kinds and offsets instead; both
+ * paths are timed here so the win stays visible.
  *
  * Skipped by default because it is a measurement, not an assertion, and it
  * needs the generated corpus. Run it with:
@@ -42,12 +47,18 @@ it.skipIf(!enabled)('profiles the phases of opening a document', { timeout: 300_
 
     // What the main process does, which is already finished by the time the
     // renderer starts its own copy of the same work.
-    time('main: parseDocument', () => parseDocument(bytes));
+    const parsed = time('main: parseDocument', () => parseDocument(bytes));
+    if (parsed.status !== 'parsed') throw new Error(parsed.message);
+    const wire = toWire(parsed.document);
 
     // Same work the open-path Worker runs; timed here on this thread so the
     // number stays comparable across machines without needing Electron.
     const spans = time('renderer: splitBlocks', () => splitBlocks(bytes.toString('utf8')).spans);
     time('renderer: docFromSpans', () => docFromSpans(spans));
+
+    // Outline on open: the old path reparsed; the new path reuses the wire.
+    time('outline: outlineOf (old)', () => outlineOf(wire.text));
+    time('outline: fromDocument', () => outlineFromDocument(wire));
   }
 
   const out = path.resolve(__dirname, '../../out/bench/open-profile.txt');
