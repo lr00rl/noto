@@ -30,7 +30,7 @@ import type { Node as ProseNode } from 'prosemirror-model';
 import { notoSchema } from '../../../shared/markdown/v3/pm/schema';
 import { blockFromSpan, docFromSpans } from '../../../shared/markdown/v3/pm/from-mdast';
 import { blockToMarkdown } from '../../../shared/markdown/v3/pm/to-mdast';
-import { parseSingleBlock, splitBlocks, type BlockSpan } from '../../../shared/markdown/v3/blocks';
+import { blockSpansFromWire, parseSingleBlock, splitBlocks, type BlockSpan } from '../../../shared/markdown/v3/blocks';
 import { parseDocumentSpans } from './parse-document';
 import { toLf } from '../../../shared/markdown/v3/line-endings';
 import {
@@ -1187,7 +1187,7 @@ export class NotoEditor implements NotoEditorPort {
   async reload(document: NotoDocumentWire): Promise<void> {
     const view = this.view;
     if (!view) return;
-    const spans = await parseDocumentSpans(document.text);
+    const spans = blockSpansFromWire(document) ?? await parseDocumentSpans(document.text);
     // A newer reload or a teardown may have landed while the worker ran.
     if (this.view !== view) return;
     this.document = document;

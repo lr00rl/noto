@@ -234,8 +234,15 @@ function originalBytesOf(text: string, bom: string): Uint8Array {
   return output;
 }
 
+function isWireMdastNode(value: unknown): boolean {
+  // Deep mdast validation belongs to the parser. For the wire we only need to
+  // know each entry is a plain object with a type string, so a forged payload
+  // cannot smuggle functions or exotic hosts across IPC.
+  return record(value) && typeof value.type === 'string' && value.type.length > 0 && value.type.length <= 64;
+}
+
 export function isNotoDocumentWire(value: unknown): value is NotoDocumentWire {
-  if (!record(value) || !exact(value, ['version', 'documentId', 'revisionId', 'envelope', 'text', 'origins', 'spans'])
+  if (!record(value) || !exact(value, ['version', 'documentId', 'revisionId', 'envelope', 'text', 'origins', 'spans', 'nodes'])
     || value.version !== 3
     || typeof value.documentId !== 'string' || !value.documentId.startsWith('noto-doc-v3:')
     || typeof value.revisionId !== 'string' || !value.revisionId.startsWith('noto-rev-v3:')
@@ -254,7 +261,10 @@ export function isNotoDocumentWire(value: unknown): value is NotoDocumentWire {
     || !value.spans.every((span) => record(span) && exact(span, ['start', 'end'])
       && Number.isSafeInteger(span.start) && Number(span.start) >= 0
       && Number.isSafeInteger(span.end) && Number(span.end) >= Number(span.start)
-      && Number(span.end) <= (value.text as string).length)) return false;
+      && Number(span.end) <= (value.text as string).length)
+    || !(value.nodes === null
+      || (Array.isArray(value.nodes) && value.nodes.length === value.origins.length
+        && value.nodes.every(isWireMdastNode)))) return false;
 
   const bytes = originalBytesOf(value.text, String(value.envelope.bom));
   return value.envelope.byteLength === bytes.byteLength

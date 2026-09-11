@@ -99,6 +99,13 @@ export interface NotoDocument {
   readonly leading: string;
   /** Text after the last block, normally the trailing newline. */
   readonly trailing: string;
+  /**
+   * Top-level mdast nodes from the parse that produced this document, or null
+   * when the document was assembled without a full micromark pass (incremental
+   * save). Open ships these on the wire so the renderer can skip its second
+   * parse; they are not needed after the editor is mounted.
+   */
+  readonly nodes: readonly import('mdast').RootContent[] | null;
 }
 
 /**
@@ -106,9 +113,9 @@ export interface NotoDocument {
  *
  * Deliberately not `NotoDocument`. That type carries the original bytes and a
  * copy of every block's markdown, so shipping it whole would put roughly three
- * copies of the file on the IPC channel. The renderer re-splits `text` to build
- * its editor document anyway, so only the text and the block identities need to
- * cross the boundary.
+ * copies of the file on the IPC channel. Identities, offsets and (on open) the
+ * mdast nodes main already built cross the boundary; the renderer no longer
+ * needs a second micromark pass to mount the editor.
  */
 export interface NotoDocumentWire {
   readonly version: typeof NOTO_MARKDOWN_VERSION;
@@ -126,6 +133,14 @@ export interface NotoDocumentWire {
    * to learn something main already knew.
    */
   readonly spans: readonly { readonly start: number; readonly end: number }[];
+  /**
+   * Top-level mdast nodes aligned with `spans` / `origins`, or null.
+   *
+   * Present after a full `parseDocument` (open and reload). Null after an
+   * incremental save, where main did not reparse the whole file; the renderer
+   * keeps its editor and only needs Worker/sync parse again on a full reload.
+   */
+  readonly nodes: readonly import('mdast').RootContent[] | null;
 }
 
 /**

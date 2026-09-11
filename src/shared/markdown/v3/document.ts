@@ -57,13 +57,6 @@ function decodeUtf8(bytes: Uint8Array): string | null {
   }
 }
 
-/**
- * Parse file bytes into a document.
- *
- * Unlike v1 this never falls back to a source-only document. A file that
- * decodes as UTF-8 always produces editable blocks, because micromark has a
- * defined result for every input.
- */
 /** Strip a document down to what the renderer actually needs. */
 export function toWire(document: NotoDocument): NotoDocumentWire {
   return {
@@ -74,9 +67,21 @@ export function toWire(document: NotoDocument): NotoDocumentWire {
     text: document.text,
     origins: document.blocks.map((block) => block.origin),
     spans: document.blocks.map((block) => ({ start: block.start, end: block.end })),
+    // Open and reload carry the nodes main already built; incremental saves
+    // leave null so the IPC payload stays small when the editor does not need
+    // to remount.
+    nodes: document.nodes,
   };
 }
 
+
+/**
+ * Parse file bytes into a document.
+ *
+ * Unlike v1 this never falls back to a source-only document. A file that
+ * decodes as UTF-8 always produces editable blocks, because micromark has a
+ * defined result for every input.
+ */
 export function parseDocument(bytes: Uint8Array): NotoParseResult {
   const decoded = decodeUtf8(bytes);
   if (decoded === null) {
@@ -138,6 +143,7 @@ export function parseDocument(bytes: Uint8Array): NotoParseResult {
       gaps,
       leading: split.leading,
       trailing: split.trailing,
+      nodes: split.spans.map((span) => span.node),
     },
   };
 }

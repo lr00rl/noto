@@ -443,6 +443,9 @@ function buildNextDocument(input: {
     gaps: input.gaps.map((text, index) => ({ beforeOrdinal: index, text })),
     leading: input.leading,
     trailing: input.trailing,
+    // Incremental save did not reparse the whole file, so there are no mdast
+    // nodes to ship. The editor is already mounted; open/reload will parse again.
+    nodes: null,
   };
 }
 
