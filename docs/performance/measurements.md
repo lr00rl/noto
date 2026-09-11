@@ -503,3 +503,17 @@ renderer no longer blocks on a second pass, or reduce what the micromark
 extension set costs per byte. Deferring the main process parse until the first
 save remains the most dangerous idea, because the file truth store's guarantees
 are built on having parsed the file it is holding.
+
+Re-measured on this Linux box after wire `nodes` landed
+(`PROFILE_OPEN=1 pnpm vitest run tests/unit/open-profile.test.ts`, 2026-09-11):
+
+| phase                         |  66 KB |  525 KB | 2.1 MB  |
+| ----------------------------- | ------ | ------- | ------- |
+| main: parseDocument           | 124 ms |  570 ms | 2424 ms |
+| renderer: fromWire + doc      |   1 ms |    5 ms |   18 ms |
+| ipc: clone wire+nodes         |   4 ms |   33 ms |  190 ms |
+
+No clear first cut: the dual-parse and outline reparses are gone; what remains
+is one full micromark pass whose cost is proportional to the file. Picking among
+incremental first paint, early-text overlap, and a thinner extension set needs
+a design pass, not another opportunistic slice.

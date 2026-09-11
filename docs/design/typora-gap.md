@@ -1423,3 +1423,12 @@ theme open beside it; done. Then line numbers and tree icons; both done. The
 remaining plugins after that, in the order the author names them;
 `fence-enhance` itself is now complete, and `sidenote`, `todo-manager`,
 `file-tags`, `timeline` and `code-viewer` are closed; `drawio` has the code-viewer open/preview slice above, not a live editor.
+
+The Typora-habit queue is soft-empty as of 2026-09-11. What remains named rather
+than queued: a live diagrams.net editor inside `drawio` (large product work, not
+a habit slice), and the open-path distance to Typora after the dual-parse removal
+(`docs/performance/measurements.md`) — main `parseDocument` dominates, but
+PROFILE shows no clear first cut yet. RooB MOC hub graph data is closed on both
+sides: Noto's rail (#14 + MOC graph-rail) and note-assistant lightweight hub
+rows (recorded in `roob-vault-stress.md` / #34); rebuild local `graph.json` to
+pick up.
