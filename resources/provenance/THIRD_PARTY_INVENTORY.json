@@ -1,5 +1,5 @@
 {
-  "lockfileSha256": "ac2b44053f8b347ed5abdb194da666bffd7ed87101bfc406dfcad4ddd9e2b34a",
+  "lockfileSha256": "f5259ee6362df3fbfe6b45a74da8db3e304c93960bd0ab5824964061242f065e",
   "packages": [
     {
       "name": "@antfu/install-pkg",
@@ -601,7 +601,7 @@
       ]
     },
     {
-      "name": "@parcel/watcher-darwin-arm64",
+      "name": "@parcel/watcher-linux-x64-glibc",
       "version": "2.6.0",
       "license": "MIT",
       "repository": "https://github.com/parcel-bundler/watcher.git",
@@ -629,7 +629,7 @@
       ]
     },
     {
-      "name": "@rolldown/binding-darwin-arm64",
+      "name": "@rolldown/binding-linux-x64-gnu",
       "version": "1.2.6",
       "license": "MIT",
       "repository": "git+https://github.com/rolldown/rolldown.git",
@@ -640,6 +640,15 @@
       "version": "1.0.1",
       "license": "MIT",
       "repository": "git+https://github.com/rolldown/plugins.git",
+      "noticeFiles": [
+        "LICENSE"
+      ]
+    },
+    {
+      "name": "@roobli/md",
+      "version": "0.1.0",
+      "license": "MIT",
+      "repository": "git+https://github.com/roobli/md.git",
       "noticeFiles": [
         "LICENSE"
       ]
@@ -1185,7 +1194,7 @@
       ]
     },
     {
-      "name": "@typescript/typescript-darwin-arm64",
+      "name": "@typescript/typescript-linux-x64",
       "version": "7.0.2",
       "license": "Apache-2.0",
       "repository": "https://github.com/microsoft/TypeScript.git",
@@ -3071,24 +3080,6 @@
       ]
     },
     {
-      "name": "fsevents",
-      "version": "2.3.2",
-      "license": "MIT",
-      "repository": "https://github.com/fsevents/fsevents.git",
-      "noticeFiles": [
-        "LICENSE"
-      ]
-    },
-    {
-      "name": "fsevents",
-      "version": "2.3.3",
-      "license": "MIT",
-      "repository": "https://github.com/fsevents/fsevents.git",
-      "noticeFiles": [
-        "LICENSE"
-      ]
-    },
-    {
       "name": "function-bind",
       "version": "1.1.2",
       "license": "MIT",
@@ -3700,7 +3691,7 @@
       ]
     },
     {
-      "name": "lightningcss-darwin-arm64",
+      "name": "lightningcss-linux-x64-gnu",
       "version": "1.33.0",
       "license": "MPL-2.0",
       "repository": "https://github.com/parcel-bundler/lightningcss.git",
@@ -4052,7 +4043,25 @@
     },
     {
       "name": "micromark-extension-cjk-friendly-util",
+      "version": "2.1.1",
+      "license": "MIT",
+      "repository": "https://github.com/tats-u/markdown-cjk-friendly",
+      "noticeFiles": [
+        "LICENSE"
+      ]
+    },
+    {
+      "name": "micromark-extension-cjk-friendly-util",
       "version": "3.0.1",
+      "license": "MIT",
+      "repository": "https://github.com/tats-u/markdown-cjk-friendly",
+      "noticeFiles": [
+        "LICENSE"
+      ]
+    },
+    {
+      "name": "micromark-extension-cjk-friendly",
+      "version": "1.2.3",
       "license": "MIT",
       "repository": "https://github.com/tats-u/markdown-cjk-friendly",
       "noticeFiles": [
